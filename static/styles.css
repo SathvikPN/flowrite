@@ -1,0 +1,142 @@
+/* General Styles */
+body {
+    color: #444444; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;  
+    font-size: 16px;
+    line-height: 1.8;
+    margin: 0;
+    min-height: 100%;
+    overflow-wrap: break-word;
+}
+
+/* Section Styles */
+.custom-section {
+    padding-top: 80px;           /* Top padding for sections */
+    padding-bottom: 80px;        /* Bottom padding for sections */
+}
+
+.custom-heading {
+    font-size: 2.5rem;         /* Heading font size */
+    font-weight: 600;           /* Heading font weight */
+    margin-bottom: 2rem;          /* Bottom margin for headings */
+}
+
+.custom-paragraph {
+    font-size: 1.1rem;         /* Paragraph font size */
+    line-height: 1.7;           /* Paragraph line height */
+    color: #6c757d;            /* Paragraph text color */
+}
+
+/* Main Content Styles */
+main {
+    flex: 1;
+    /* padding-top will be set dynamically by JS based on navbar height */
+}
+
+/* Footer Styles */
+footer {
+    margin-top: auto;          /* Push footer to the bottom */
+}
+
+/* Navbar Styles */
+.navbar {
+    border-bottom: 1px solid #dee2e6;  /* Bottom border for navbar (Bootstrap color) */
+}
+
+.navbar-nav .nav-item { 
+    margin-left: 0.5rem; 
+}
+
+#indian-time {
+    font-weight: 500;       /* Bold font weight for time */
+}
+
+/* Navbar Brand Styles */
+.navbar-brand-container {
+    display: flex;                /* Use flexbox for brand and subtitle */
+    flex-direction: column;         /* Stack brand and subtitle vertically */
+    align-items: flex-start;      /* Align items to the start (left) */
+}
+
+.navbar-brand-title {
+    font-size: 1.25rem;       /* Brand title font size */
+    font-weight: bold;           /* Brand title font weight */
+    margin-left: 0.5rem;          /* Margin for brand title */
+}
+
+/* removed subtitle for now
+.navbar-brand-subtitle {
+    font-size: 0.8rem;  
+    font-weight: normal;
+    color: #6c757d;     
+} */
+
+/* Centered layout with max width */
+.wrapper {
+    max-width: 750px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .wrapper {
+        max-width: 98vw;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
+.custom-paragraph {
+    margin-left: 0rem;
+    font-size: 1.1rem;         
+    line-height: 2;          
+    color: #6c757d;           
+}
+
+
+a {
+  border-bottom: 1px solid #444444; 
+  color: #444444; 
+  text-decoration: none;
+}
+a:hover {border-bottom: 0;}
+
+img:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease-in-out;
+}
+
+.vr {
+    border-left: 1px solid #2e2f30; /* Bootstrap color */
+    height: 100%;
+    margin-inline: 1rem; /* Space between elements */
+}
+
+.active {
+    /* make slightly different to notify active page */
+    color: #444444;
+    font-weight: 600;
+    text-decoration: wavy;
+    text-decoration-color: #444444;
+    text-underline-offset: 0.2rem;
+    text-decoration-thickness: 0.1rem;
+    text-underline-position: under;
+    text-decoration-skip-ink: none;
+    text-decoration-skip: objects;   
+}
+
+.footer {
+    margin-top: auto;
+    background-color: #f8f9fa; 
+    padding: 20px 0;
+    text-align: center;       
+    font-size: 0.9rem;        
+    color: #6c757d;          
+}
+
+li {
+    margin-bottom: 0.5rem; /* Space between list items */
+}
+
+/* ...copy all contents from /Users/sathvikpn/Workspace/homepage/styles.css here... */
