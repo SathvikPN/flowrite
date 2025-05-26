@@ -61,7 +61,7 @@ footer {
 .navbar-brand-title {
     font-size: 1.25rem;       /* Brand title font size */
     font-weight: bold;           /* Brand title font weight */
-    margin-left: 0.5rem;          /* Margin for brand title */
+    margin-right: 0.5rem;          /* Margin for brand title */
 }
 
 /* removed subtitle for now
