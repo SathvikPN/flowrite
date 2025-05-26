@@ -1,1 +1,11 @@
 {% extends "base.html" %}
+
+{% block title %} {{ data.title }} {% endblock %}
+
+{% block main %}
+<div class="container pt-5">
+    <article class="text-content mt-6">
+        {{ article_html|safe }}
+    </article>
+</div>
+{% endblock %}

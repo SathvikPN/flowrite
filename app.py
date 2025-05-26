@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template
 import logging
+import markdown
 
 app = Flask(__name__)
 
@@ -11,9 +12,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 @app.route('/')
-def home():
-    logger.info("Home route accessed")
-    return render_template('index.html')
+def index():
+    with open('content/index_article.md', 'r', encoding='utf-8') as file:
+        index_article = file.read()
+
+    article_html = markdown.markdown(index_article)
+    return render_template('index.html', data={
+        "title": "Home",
+        "message": "This is a simple Flask application with logging."
+    }, article_html=article_html)
 
 @app.route('/health')
 def health():
