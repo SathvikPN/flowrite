@@ -5,13 +5,23 @@
 {% endblock %}
 
 {% block main %}
+render all display_posts beautifully 
 <div class="container pt-5">
     <div class="row">
-        <div class="col-md-12">
-            <h1 class="text-center">Your Shelf</h1>
-            <p class="text-center">Here you can manage your saved writings.</p>
-            <!-- Add your shelf content here -->
-        </div>
+        {% for post in data.posts %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ post.title }}</h5>
+                        <p class="card-text">{{ post.content[:100] }}...</p>
+                        <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-primary">Read More</a>
+                    </div>
+                    <div class="card-footer text-muted">
+                        Posted by {{ post.author }} on {{ post.created_at.strftime('%Y-%m-%d') }}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

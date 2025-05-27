@@ -1,16 +1,15 @@
-CREATE TABLE IF NOT EXISTS account (
+CREATE TABLE IF NOT EXISTS user (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP,
+    last_login TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS post (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT NOT NULL,
-    author_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    content TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (author_id) REFERENCES account(id)
+    FOREIGN KEY(user_id) REFERENCES user(id)
 );

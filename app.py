@@ -99,7 +99,7 @@ def shelf():
 
     return render_template('shelf.html', data = {
         "title": "Shelf",
-        "articles": display_posts,
+        "posts": display_posts,
     })
 
 
@@ -117,9 +117,15 @@ def init_db():
     """Initialize the database using schema.sql."""
     with app.app_context():
         db = get_db()
-        with open(os.path.join(os.path.dirname(__file__), 'schema.sql'), 'r') as f:
-            db.executescript(f.read())
-        db.commit()
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        try:
+            with open(schema_path, 'r') as f:
+                db.executescript(f.read())
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            import sys
+            sys.exit(1)
 
 
 
@@ -128,6 +134,10 @@ def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        confirmation = request.form.get('confirmation')
+        # confirm passwords match
+        if password != confirmation:
+            return render_template('register.html', data={"title": "Register", "error": "Passwords do not match."})
         
         db = get_db()
 
@@ -176,9 +186,8 @@ if __name__ == '__main__':
     # Path to the SQLite database file
     DATABASE = os.path.join(os.path.dirname(__file__), 'flowrite.db')
 
-    # Initialize DB if not exists
-    if not os.path.exists(DATABASE):
-        init_db()
+    # Always initialize DB to ensure schema exists
+    init_db()
 
     # Start the Flask application
     # app.run(debug=True, port=5001, host='127.0.0.1')
