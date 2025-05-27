@@ -23,10 +23,11 @@
 {% block footer %}
 <footer class="bottom-toolbar">
     <div class="container">
-        <div class="toolbar-content d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <button type="button" id="logo-btn" class="btn btn-subtle py-1 px-2 text-muted" href="/">Flowrite</button>
-            
-            <div class="editor-controls d-flex align-items-center gap-2 flex-wrap">                    
+        <div class="toolbar-content d-flex flex-wrap align-items-center gap-2">
+            <!-- Left side: brand + fonts (will stay together) -->
+            <div class="d-flex align-items-center gap-2 me-auto">
+                <button type="button" id="logo-btn" class="btn btn-subtle py-1 px-2 text-muted" href="/">Flowrite</button>
+                
                 <div class="font-controls d-flex gap-1">
                     <select id="font-family" class="control-select form-select-sm py-1 px-2">
                         <option value="system-ui">System UI</option>
@@ -45,11 +46,13 @@
                         <option value="24">24px</option>
                     </select>
                 </div>
+            </div>
 
-                <div class="action-buttons d-flex align-items-center gap-2">
-                    <button type="button" id="export-btn" class="btn btn-subtle py-1 px-2 text-muted">Export</button>
-                    <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
-                </div>
+            <!-- Right side: export + save -->
+            <div class="action-buttons d-flex align-items-center gap-2">
+                <button type="button" id="export-btn" class="btn btn-subtle py-1 px-2 text-muted">Export</button>
+                <span class="mx-1 text-muted">•</span>
+                <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
             </div>
         </div>
     </div>
