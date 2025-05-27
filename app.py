@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, redirect, session
+from flask import Flask, jsonify, render_template, request, redirect, session, flash, url_for
 import logging
 import markdown
 from functools import wraps
@@ -25,6 +25,27 @@ def before_request():
     # Debug and Monitoring: Log incoming requests
     # logger.info(f"Received request: {request.method} {request.path} from {request.remote_addr} \ndata: {data}")
     pass
+
+def get_db():
+    """Connect to the SQLite database, creating it if it doesn't exist."""
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
+    return conn
+
+def init_db():
+    """Initialize the database using schema.sql."""
+    with app.app_context():
+        db = get_db()
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        try:
+            with open(schema_path, 'r') as f:
+                db.executescript(f.read())
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            import sys
+            sys.exit(1)
+
 
 # Endpoint to check if the server is running
 @app.route('/health')
@@ -53,7 +74,21 @@ def write():
         if 'user_id' not in session:
             logger.warning(f"Unauthenticated user attempted to save content. IP: {request.remote_addr} User-Agent: {request.headers.get('User-Agent')}")
             render_template('login.html', data={"title": "Login", "message": "login to save content."})
+
         logger.info(f"Received save from write page. content: \n{request.form.get('content')}")
+
+        # insert content into database 
+        db = get_db()
+        user_id = session.get('user_id')
+        content = request.form.get('content')
+        if content:
+            # Insert the post into the database
+            db.execute(
+                "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                (user_id, content)
+            )
+            db.commit()
+            logger.info(f"User {user_id} saved a new article.")
         return redirect('/shelf')
     
 
@@ -91,7 +126,6 @@ def shelf():
     for post in posts:
         display_posts.append({
             "id": post['id'],
-            "title": post['title'],
             "content": post['content'],
             "created_at": post['created_at']
         })
@@ -102,30 +136,60 @@ def shelf():
         "posts": display_posts,
     })
 
+# TODO: check if user is the owner of the post
+@app.route('/posts/<int:post_id>')
+def view_post(post_id):
+    # Get post from database
+    db = get_db()
+    post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
+    
+    # Check if post exists
+    if post is None:
+        flash('Post not found', 'error')
+        return redirect('/shelf')
+    
+    return render_template('post.html', post=post)
+
+# TODO: check if user is the owner of the post
+@app.route('/posts/<int:post_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_post(post_id):
+    # Get post from database
+    db = get_db()
+    post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
+    
+    # Check if post exists
+    if not post:
+        flash('Post not found', 'error')
+        return redirect('/shelf')
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        
+        # Update post in database
+        db.execute("UPDATE post SET title = ?, content = ? WHERE id = ?",
+                  title, content, post_id)
+        db.commit()
+        
+        flash('Post updated successfully', 'success')
+        return redirect(url_for('view_post', post_id=post_id))
+    
+    return render_template('write.html', post=post)
+
+# TODO: check if user is the owner of the post
+@app.route('/posts/<int:post_id>/delete', methods=['POST'])
+@login_required
+def delete_post(post_id):
+    # Delete post from database
+    db = get_db()
+    db.execute("DELETE FROM post WHERE id = ?", (post_id,))
+    db.commit()
+    
+    flash('Post deleted successfully', 'success')
+    return redirect('/shelf')
 
 
-
-
-
-def get_db():
-    """Connect to the SQLite database, creating it if it doesn't exist."""
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
-    return conn
-
-def init_db():
-    """Initialize the database using schema.sql."""
-    with app.app_context():
-        db = get_db()
-        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
-        try:
-            with open(schema_path, 'r') as f:
-                db.executescript(f.read())
-            db.commit()
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            import sys
-            sys.exit(1)
 
 
 
