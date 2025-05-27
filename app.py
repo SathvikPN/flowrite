@@ -197,9 +197,16 @@ def login():
         db.commit()
         logger.info(f"User {username} logged in successfully.")
         # Redirect to the shelf page after successful login
-        return redirect('/')
+        return redirect('/shelf')
 
     return render_template('login.html', data={"title": "Login"})
+
+@app.route('/logout')
+def logout():
+    """Log out the user by clearing the session."""
+    session.clear()
+    logger.info("User logged out successfully.")
+    return redirect('/')
 
 if __name__ == '__main__':
     # Path to the SQLite database file

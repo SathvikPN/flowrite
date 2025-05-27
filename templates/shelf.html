@@ -5,9 +5,9 @@
 {% endblock %}
 
 {% block main %}
-render all display_posts beautifully 
 <div class="container pt-5">
     <div class="row">
+
         {% for post in data.posts %}
             <div class="col-md-4 mb-4">
                 <div class="card h-100">
@@ -22,6 +22,13 @@ render all display_posts beautifully
                 </div>
             </div>
         {% endfor %}
+
+        {% if not data.posts %}
+
+            <div class="d-flex justify-content-center">
+                <a href="/write" class="btn btn-outline-secondary">start writing</a>
+            </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
