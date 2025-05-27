@@ -10,27 +10,30 @@
                   spellcheck="true"
                   autofocus></textarea>
         
-        <div class="bottom-controls">
-            <div class="controls-left">
-                <select id="font-family" class="control-select">
-                    <option value="system-ui">System UI</option>
-                    <option value="inter">Inter</option>
-                    <option value="georgia">Georgia</option>
-                    <option value="times">Times New Roman</option>
-                    <option value="helvetica">Helvetica</option>
-                    <option value="arial">Arial</option>
-                    <option value="menlo">Menlo</option>
-                    <option value="monaco">Monaco</option>
-                </select>
-                <select id="font-size" class="control-select">
-                    <option value="14">14px</option>
-                    <option value="16" selected>16px</option>
-                    <option value="18">18px</option>
-                    <option value="20">20px</option>
-                    <option value="24">24px</option>
-                </select>
+        <div class="bottom-toolbar">
+            <div class="container">
+                <div class="toolbar-content">
+                    <select id="font-family" class="control-select">
+                        <option value="system-ui">System UI</option>
+                        <option value="inter">Inter</option>
+                        <option value="georgia">Georgia</option>
+                        <option value="helvetica">Helvetica</option>
+                        <option value="arial">Arial</option>
+                        <option value="menlo">Menlo</option>
+                        <option value="monaco">Monaco</option>
+                    </select>
+                    <span class="vr mx-4"></span>
+                    <select id="font-size" class="control-select">
+                        <option value="14">14px</option>
+                        <option value="16" selected>16px</option>
+                        <option value="18">18px</option>
+                        <option value="20">20px</option>
+                        <option value="24">24px</option>
+                    </select>
+                    <span class="vr mx-4"></span>
+                    <button type="submit" class="btn btn-link p-0">Submit</button>
+                </div>
             </div>
-            <button type="submit" class="btn btn-outline-secondary" style="margin-top: 1rem; margin-bottom: 1rem;">Submit</button>
         </div>
     </form>
 </div>
@@ -39,8 +42,9 @@
 #write-form {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 120px);
+    height: calc(100vh - 140px);
     position: relative;
+    margin-bottom: 20px;
 }
 
 #editor {
@@ -67,5 +71,92 @@
     color: #999999;
     opacity: 0.6;
 }
+
+.bottom-toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #eee;
+    padding: 0.75rem 0;
+}
+
+.toolbar-content {
+    display: flex;
+    align-items: center;
+    padding: 0;
+}
+
+.control-select {
+    border: none;
+    background: transparent;
+    color: #666;
+    font-size: 14px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.control-select:focus {
+    outline: none;
+}
+
+.vr {
+    display: inline-block;
+    align-self: stretch;
+    width: 1px;
+    background-color: #dee2e6;
+    opacity: 0.25;
+}
+
+.mx-4 {
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+
+.btn-link {
+    color: #666;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.btn-link:hover {
+    color: #333;
+    text-decoration: none;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editor = document.getElementById('editor');
+    const fontFamily = document.getElementById('font-family');
+    const fontSize = document.getElementById('font-size');
+
+    // Load saved preferences
+    const savedFont = localStorage.getItem('preferredFont');
+    const savedSize = localStorage.getItem('preferredSize');
+
+    if (savedFont) {
+        fontFamily.value = savedFont;
+        editor.style.fontFamily = savedFont;
+    }
+    if (savedSize) {
+        fontSize.value = savedSize;
+        editor.style.fontSize = `${savedSize}px`;
+    }
+
+    // Handle font family changes
+    fontFamily.addEventListener('change', function() {
+        editor.style.fontFamily = this.value;
+        localStorage.setItem('preferredFont', this.value);
+    });
+
+    // Handle font size changes
+    fontSize.addEventListener('change', function() {
+        editor.style.fontSize = `${this.value}px`;
+        localStorage.setItem('preferredSize', this.value);
+    });
+});
+</script>
 {% endblock %}
