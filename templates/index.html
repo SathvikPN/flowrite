@@ -4,8 +4,11 @@
 
 {% block main %}
 <div class="container pt-5">
-    <article class="text-content mt-6">
+    <article class="text-content mt-6 mb-5">
         {{ article_html|safe }}
+    <div class="d-flex justify-content-mid">
+        <a href="/write" class="btn btn-outline-secondary">start writing</a>
+    </div>
     </article>
 </div>
 {% endblock %}

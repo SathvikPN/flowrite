@@ -21,7 +21,3 @@ who shares this idea of distraction-free writing that helps in <mark>attentive c
 So, come write with me.  
 simple, minimal, clean.  
 access from anywhere and start your write flow.
-
-a monologue by,  
-Sathvik
-
