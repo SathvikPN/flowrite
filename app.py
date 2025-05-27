@@ -4,7 +4,7 @@ import markdown
 from functools import wraps
 import sqlite3
 import os
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -137,26 +137,30 @@ def register():
         confirmation = request.form.get('confirmation')
         # confirm passwords match
         if password != confirmation:
-            return render_template('register.html', data={"title": "Register", "error": "Passwords do not match."})
+            return render_template(
+            'register.html',
+            data={"title": "Register", "error": "Mismatched passwords. Please confirm your password."}
+            ), 400  # 400 Bad Request for client-side input errors
         
         db = get_db()
 
         # Check if username already exists
         user = db.execute(
-            "SELECT * FROM account WHERE username = ?", (username)
+            "SELECT * FROM user WHERE username = ?", (username,)
         ).fetchone()
         if user:
             # username already registered, redirect back with message
-            return render_template('register.html', data={"title": "Register", "error": "This username is already registered, try using a different username."})
+            return render_template('register.html', data={"title": "Register", "error": "Username is already registered, try a different username."})
         
-        # Insert user into account table
+        # Insert user into user table
         # Hash the password for security
         hashed_password = generate_password_hash(password, method='pbkdf2')
         db.execute(
-            "INSERT INTO account (username, password) VALUES (?, ?)",
+            "INSERT INTO user (username, password) VALUES (?, ?)",
             (username, hashed_password)
         )
         db.commit()
+        logger.info(f"User {username} registered successfully.")
         return redirect('/login')
     return render_template('register.html', data={"title": "Register"})
 
@@ -169,16 +173,31 @@ def login():
         
         db = get_db()
         user = db.execute(
-            "SELECT * FROM account WHERE username = ?", (username,)
+            "SELECT * FROM user WHERE username = ?", (username,)
         ).fetchone()
 
-        if user and user['password'] == generate_password_hash(password, method='pbkdf2'):
-            # User authenticated successfully
-            session['user_id'] = user['id']
-            return redirect('/')
-        else:
-            # Authentication failed
-            return render_template('login.html', data={"title": "Login", "error": "Invalid username or password."})
+        if not user:
+            return render_template('login.html', data={
+                "error": "Username not found, please register first.",
+            })
+        
+        # FIX: Use check_password_hash to verify password
+        if not check_password_hash(user['password'], password):
+            return render_template('login.html', data={
+                "error": "Invalid password. Please try again.",
+            })
+
+        # User authenticated successfully
+        session['user_id'] = user['id']
+        # Optionally update last_login (fix SQL syntax)
+        db.execute(
+            "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+            (user['id'],)
+        )
+        db.commit()
+        logger.info(f"User {username} logged in successfully.")
+        # Redirect to the shelf page after successful login
+        return redirect('/')
 
     return render_template('login.html', data={"title": "Login"})
 

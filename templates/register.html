@@ -2,18 +2,6 @@
 
 {% block title %}Register{% endblock %}
 
-{% if data.error %}
-    {% set error = data.error %}
-{% endif %}
-
-{% if data.success %}
-    {% set success = data.success %}
-{% endif %}
-
-{% if data.message %}
-    {% set message = data.message %}
-{% endif %}
-
 {% block main %} 
 <div class="container pt-5">
     <div class="row justify-content-center">
@@ -41,24 +29,24 @@
     </div>
 </div>
 
-{% if error %}
+{% if data.error %}
     <div class="d-flex justify-content-center mt-3">
         <div class="alert alert-danger shadow-sm rounded-3 text-center px-4 py-3" role="alert" style="background: #fff6f6; border-color: #f5c2c7; color: #842029; max-width: 500px; width: 100%;">
             <i class="bi bi-exclamation-circle-fill me-2" style="font-size: 1.2rem;"></i>
-            Mismatched passwords. Please confirm your password.
+            {{ data.error }}
         </div>
     </div>
 {% endif %}
 
-{% if success %}
+{% if data.success %}
     <div class="alert alert-success mt-3" role="alert">
-        {{ success }}
+        {{ data.success }}
     </div>
 {% endif %}
 
-{% if message %}
+{% if data.message %}
     <div class="alert alert-info mt-3" role="alert">
-        {{ message }}
+        {{ data.message }}
     </div>
 {% endif %}
 
