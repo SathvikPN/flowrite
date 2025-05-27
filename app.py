@@ -280,6 +280,8 @@ def logout():
     return redirect('/')
 
 if __name__ == '__main__':
+    # session.clear()  # session is only valid in a request context
+    
     # Path to the SQLite database file
     DATABASE = os.path.join(os.path.dirname(__file__), 'flowrite.db')
 
