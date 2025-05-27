@@ -49,30 +49,17 @@ def index():
 def write():
     # user submitted content from the editor to save
     if request.method == 'POST':
-        logger.info(f"Received save from write page: content: \n{request.form.get('content')}")
+        # allow only authenticated users to save content
+        if 'user_id' not in session:
+            logger.warning(f"Unauthenticated user attempted to save content. IP: {request.remote_addr} User-Agent: {request.headers.get('User-Agent')}")
+            render_template('login.html', data={"title": "Login", "message": "login to save content."})
+        logger.info(f"Received save from write page. content: \n{request.form.get('content')}")
         return redirect('/shelf')
     
 
     return render_template('write.html', data = {
         "title": "Write",
-    })
-
-
-
-@app.route('/shelf')
-# @login_required
-def shelf():
-    # Here you would typically fetch the user's saved articles from a database
-    # For demonstration, we'll use a static list
-    articles = [
-        {"title": "Article 1", "content": "Content of article 1"},
-        {"title": "Article 2", "content": "Content of article 2"},
-        {"title": "Article 3", "content": "Content of article 3"},
-    ]
-    
-    return render_template('shelf.html', data = {
-        "title": "Shelf",
-        "articles": articles,
+        "message": "Start writing...",
     })
 
 
@@ -86,6 +73,37 @@ def login_required(f):
             return redirect('/login')
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.route('/shelf')
+@login_required
+def shelf():
+    # Here you would typically fetch the user's saved articles from a database
+    db = get_db()
+    user_id = session.get('user_id')
+    posts = db.execute(
+        "SELECT * FROM post WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+        (user_id,)
+    ).fetchall()
+    
+    # Convert posts to a list of dictionaries for rendering
+    display_posts = []
+    for post in posts:
+        display_posts.append({
+            "id": post['id'],
+            "title": post['title'],
+            "content": post['content'],
+            "created_at": post['created_at']
+        })
+    logger.info(f"User {user_id} accessed their shelf with {len(display_posts)} articles.")
+
+    return render_template('shelf.html', data = {
+        "title": "Shelf",
+        "articles": display_posts,
+    })
+
+
+
 
 
 
@@ -132,6 +150,27 @@ def register():
         return redirect('/login')
     return render_template('register.html', data={"title": "Register"})
 
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        db = get_db()
+        user = db.execute(
+            "SELECT * FROM account WHERE username = ?", (username,)
+        ).fetchone()
+
+        if user and user['password'] == generate_password_hash(password, method='pbkdf2'):
+            # User authenticated successfully
+            session['user_id'] = user['id']
+            return redirect('/')
+        else:
+            # Authentication failed
+            return render_template('login.html', data={"title": "Login", "error": "Invalid username or password."})
+
+    return render_template('login.html', data={"title": "Login"})
 
 if __name__ == '__main__':
     # Path to the SQLite database file
