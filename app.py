@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 import logging
 import markdown
 
@@ -27,8 +27,14 @@ def index():
         "message": "Hompe Page for Flowrite",
     }, article_html=article_html)
 
-@app.route('/write')
+@app.route('/write', methods=['GET', 'POST'])
 def write():
+    if request.method == 'POST':
+        # Handle form submission logic here
+        print(f"Received save from write page: content: \n{request.form.get('content')}")
+        return jsonify({"status": "success", "message": "Content saved successfully!"})
+    
+
     return render_template('write.html', data = {
         "title": "Write",
         "message": "Write Page for Flowrite",

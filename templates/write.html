@@ -11,7 +11,7 @@
 
 {% block main %}
 <div class="container pt-6">
-    <form id="write-form" autocomplete="off">
+    <form id="write-form" action="/write" method="post">
         <textarea id="editor" name="content" 
                   placeholder="Start writing..." 
                   spellcheck="true"
