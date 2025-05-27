@@ -34,9 +34,15 @@
                     <li class="nav-item">
                         <a class="nav-link" href="/shelf">shelf</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/login">login</a>
-                    </li>
+                    {% if session.get('user_id') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="/logout">logout</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="/login">login</a>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

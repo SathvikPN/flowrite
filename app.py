@@ -253,7 +253,7 @@ def login():
 
         # User authenticated successfully
         session['user_id'] = user['id']
-        # Optionally update last_login (fix SQL syntax)
+        # Optionally update last_login
         db.execute(
             "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
             (user['id'],)
@@ -268,6 +268,7 @@ def login():
 @app.route('/logout')
 def logout():
     """Log out the user by clearing the session."""
+    logger.info(f"User {session.get('user_id')} is logging out.")
     session.clear()
     logger.info("User logged out successfully.")
     return redirect('/')
