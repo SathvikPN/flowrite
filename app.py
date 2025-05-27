@@ -2,6 +2,9 @@ from flask import Flask, jsonify, render_template, request, redirect, session
 import logging
 import markdown
 from functools import wraps
+import sqlite3
+import os
+from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 
@@ -85,6 +88,59 @@ def login_required(f):
     return decorated_function
 
 
+
+def get_db():
+    """Connect to the SQLite database, creating it if it doesn't exist."""
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
+    return conn
+
+def init_db():
+    """Initialize the database using schema.sql."""
+    with app.app_context():
+        db = get_db()
+        with open(os.path.join(os.path.dirname(__file__), 'schema.sql'), 'r') as f:
+            db.executescript(f.read())
+        db.commit()
+
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        db = get_db()
+
+        # Check if username already exists
+        user = db.execute(
+            "SELECT * FROM account WHERE username = ?", (username)
+        ).fetchone()
+        if user:
+            # username already registered, redirect back with message
+            return render_template('register.html', data={"title": "Register", "error": "This username is already registered, try using a different username."})
+        
+        # Insert user into account table
+        # Hash the password for security
+        hashed_password = generate_password_hash(password, method='pbkdf2')
+        db.execute(
+            "INSERT INTO account (username, password) VALUES (?, ?)",
+            (username, hashed_password)
+        )
+        db.commit()
+        return redirect('/login')
+    return render_template('register.html', data={"title": "Register"})
+
+
 if __name__ == '__main__':
+    # Path to the SQLite database file
+    DATABASE = os.path.join(os.path.dirname(__file__), 'flowrite.db')
+
+    # Initialize DB if not exists
+    if not os.path.exists(DATABASE):
+        init_db()
+
+    # Start the Flask application
     # app.run(debug=True, port=5001, host='127.0.0.1')
     app.run(debug=True, port=5001, host='0.0.0.0')
