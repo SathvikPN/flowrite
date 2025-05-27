@@ -11,11 +11,11 @@
 
 {% block main %}
 <div class="container pt-6">
-    <form id="write-form" action="/write" method="post">
+    <form id="write-form" action="{% if post %}{{ url_for('edit_post', post_id=post.id) }}{% else %}/write{% endif %}" method="post">
         <textarea id="editor" name="content" 
                   placeholder="Start writing..." 
                   spellcheck="true"
-                  autofocus></textarea>
+                  autofocus>{% if post %}{{ post.content }}{% endif %}</textarea>
     </form>
 </div>
 {% endblock %}
@@ -50,7 +50,16 @@
                     <div class="action-buttons d-flex align-items-center gap-2 ms-2">
                         <button type="button" id="export-btn" class="btn btn-subtle py-1 px-2 text-muted">Export</button>
                         <span class="mx-1 text-muted">•</span>
-                        <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
+                        {% if session.user_id %}
+                            <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
+                        {% else %}
+                            <div class="login-prompt d-flex align-items-center">
+                                <a href="/login" class="btn btn-subtle py-1 px-2 text-muted">Login to save</a>
+                                <div class="login-tooltip">
+                                    <small class="text-muted">or <a href="/register" class="text-decoration-none">register</a></small>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -131,6 +140,34 @@
     background-color: rgba(0, 0, 0, 0.05);
 }
 
+.login-prompt {
+    position: relative;
+}
+
+.login-tooltip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding-top: 0.25rem;
+    font-size: 0.75rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.login-prompt:hover .login-tooltip {
+    opacity: 1;
+}
+
+.login-tooltip a {
+    color: #666;
+}
+
+.login-tooltip a:hover {
+    color: #333;
+}
+
 @media (max-width: 576px) {
     .toolbar-content {
         row-gap: 0.5rem !important;
@@ -144,6 +181,14 @@
 
     .font-controls {
         margin-right: auto;
+    }
+
+    .login-tooltip {
+        position: static;
+        transform: none;
+        padding-top: 0;
+        padding-left: 0.5rem;
+        opacity: 1;
     }
 }
 </style>

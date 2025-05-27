@@ -27,24 +27,24 @@ def before_request():
     pass
 
 def get_db():
-    """Connect to the SQLite database, creating it if it doesn't exist."""
-    conn = sqlite3.connect(DATABASE)
+    """Connect to the SQLite database, creating it if it doesn't exist, and enable WAL mode."""
+    conn = sqlite3.connect(DATABASE, timeout=10, isolation_level=None)
     conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
+    conn.execute('PRAGMA journal_mode=WAL;')
     return conn
 
 def init_db():
     """Initialize the database using schema.sql."""
     with app.app_context():
-        db = get_db()
-        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
-        try:
-            with open(schema_path, 'r') as f:
-                db.executescript(f.read())
-            db.commit()
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
-            import sys
-            sys.exit(1)
+        with get_db() as db:
+            schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+            try:
+                with open(schema_path, 'r') as f:
+                    db.executescript(f.read())
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {e}")
+                import sys
+                sys.exit(1)
 
 
 # Endpoint to check if the server is running
@@ -73,24 +73,21 @@ def write():
         # allow only authenticated users to save content
         if 'user_id' not in session:
             logger.warning(f"Unauthenticated user attempted to save content. IP: {request.remote_addr} User-Agent: {request.headers.get('User-Agent')}")
-            render_template('login.html', data={"title": "Login", "message": "login to save content."})
+            return render_template('login.html', data={"title": "Login", "message": "login to save content."})
 
         logger.info(f"Received save from write page. content: \n{request.form.get('content')}")
 
-        # insert content into database 
-        db = get_db()
         user_id = session.get('user_id')
         content = request.form.get('content')
         if content:
             # Insert the post into the database
-            db.execute(
-                "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-                (user_id, content)
-            )
-            db.commit()
+            with get_db() as db:
+                db.execute(
+                    "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    (user_id, content)
+                )
             logger.info(f"User {user_id} saved a new article.")
         return redirect('/shelf')
-    
 
     return render_template('write.html', data = {
         "title": "Write",
@@ -113,13 +110,13 @@ def login_required(f):
 @app.route('/shelf')
 @login_required
 def shelf():
-    # Here you would typically fetch the user's saved articles from a database
-    db = get_db()
+    # Fetch the user's saved articles from the database
     user_id = session.get('user_id')
-    posts = db.execute(
-        "SELECT * FROM post WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
-        (user_id,)
-    ).fetchall()
+    with get_db() as db:
+        posts = db.execute(
+            "SELECT * FROM post WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+            (user_id,)
+        ).fetchall()
     
     # Convert posts to a list of dictionaries for rendering
     display_posts = []
@@ -140,8 +137,8 @@ def shelf():
 @app.route('/posts/<int:post_id>')
 def view_post(post_id):
     # Get post from database
-    db = get_db()
-    post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
+    with get_db() as db:
+        post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
     
     # Check if post exists
     if post is None:
@@ -155,37 +152,45 @@ def view_post(post_id):
 @login_required
 def edit_post(post_id):
     # Get post from database
-    db = get_db()
-    post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
+    with get_db() as db:
+        post = db.execute("SELECT * FROM post WHERE id = ?", (post_id,)).fetchone()
     
-    # Check if post exists
-    if not post:
-        flash('Post not found', 'error')
-        return redirect('/shelf')
-    
-    if request.method == 'POST':
-        title = request.form.get('title')
-        content = request.form.get('content')
+        # Check if post exists
+        if not post:
+            flash('Post not found', 'error')
+            return redirect('/shelf')
         
-        # Update post in database
-        db.execute("UPDATE post SET title = ?, content = ? WHERE id = ?",
-                  title, content, post_id)
-        db.commit()
+        # Check if user owns this post
+        if post['user_id'] != session.get('user_id'):
+            flash('You do not have permission to edit this post', 'error')
+            return redirect('/shelf')
         
-        flash('Post updated successfully', 'success')
-        return redirect(url_for('view_post', post_id=post_id))
+        if request.method == 'POST':
+            content = request.form.get('content')
+            
+            if not content:
+                flash('Content cannot be empty', 'error')
+                return render_template('write.html', post=post)
+            
+            # Update post in database
+            db.execute("UPDATE post SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                      (content, post_id))
+            flash('Post updated successfully', 'success')
+            return redirect(url_for('view_post', post_id=post_id))
     
-    return render_template('write.html', post=post)
+    # GET request - show edit form
+    return render_template('write.html', data={
+        "title": "Edit Post",
+        "message": "Edit your post..."
+    }, post=post)
 
 # TODO: check if user is the owner of the post
 @app.route('/posts/<int:post_id>/delete', methods=['POST'])
 @login_required
 def delete_post(post_id):
     # Delete post from database
-    db = get_db()
-    db.execute("DELETE FROM post WHERE id = ?", (post_id,))
-    db.commit()
-    
+    with get_db() as db:
+        db.execute("DELETE FROM post WHERE id = ?", (post_id,))
     flash('Post deleted successfully', 'success')
     return redirect('/shelf')
 
@@ -206,25 +211,23 @@ def register():
             data={"title": "Register", "error": "Mismatched passwords. Please confirm your password."}
             ), 400  # 400 Bad Request for client-side input errors
         
-        db = get_db()
-
-        # Check if username already exists
-        user = db.execute(
-            "SELECT * FROM user WHERE username = ?", (username,)
-        ).fetchone()
-        if user:
-            # username already registered, redirect back with message
-            return render_template('register.html', data={"title": "Register", "error": "Username is already registered, try a different username."})
-        
-        # Insert user into user table
-        # Hash the password for security
-        hashed_password = generate_password_hash(password, method='pbkdf2')
-        db.execute(
-            "INSERT INTO user (username, password) VALUES (?, ?)",
-            (username, hashed_password)
-        )
-        db.commit()
-        logger.info(f"User {username} registered successfully.")
+        with get_db() as db:
+            # Check if username already exists
+            user = db.execute(
+                "SELECT * FROM user WHERE username = ?", (username,)
+            ).fetchone()
+            if user:
+                # username already registered, redirect back with message
+                return render_template('register.html', data={"title": "Register", "error": "Username is already registered, try a different username."})
+            
+            # Insert user into user table
+            # Hash the password for security
+            hashed_password = generate_password_hash(password, method='pbkdf2')
+            db.execute(
+                "INSERT INTO user (username, password) VALUES (?, ?)",
+                (username, hashed_password)
+            )
+            logger.info(f"User {username} registered successfully.")
         return redirect('/login')
     return render_template('register.html', data={"title": "Register"})
 
@@ -235,31 +238,30 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        db = get_db()
-        user = db.execute(
-            "SELECT * FROM user WHERE username = ?", (username,)
-        ).fetchone()
+        with get_db() as db:
+            user = db.execute(
+                "SELECT * FROM user WHERE username = ?", (username,)
+            ).fetchone()
 
-        if not user:
-            return render_template('login.html', data={
-                "error": "Username not found, please register first.",
-            })
-        
-        # FIX: Use check_password_hash to verify password
-        if not check_password_hash(user['password'], password):
-            return render_template('login.html', data={
-                "error": "Invalid password. Please try again.",
-            })
+            if not user:
+                return render_template('login.html', data={
+                    "error": "Username not found, please register first.",
+                })
+            
+            # FIX: Use check_password_hash to verify password
+            if not check_password_hash(user['password'], password):
+                return render_template('login.html', data={
+                    "error": "Invalid password. Please try again.",
+                })
 
-        # User authenticated successfully
-        session['user_id'] = user['id']
-        # Optionally update last_login
-        db.execute(
-            "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-            (user['id'],)
-        )
-        db.commit()
-        logger.info(f"User {username} logged in successfully.")
+            # User authenticated successfully
+            session['user_id'] = user['id']
+            # Optionally update last_login
+            db.execute(
+                "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+                (user['id'],)
+            )
+            logger.info(f"User {username} logged in successfully.")
         # Redirect to the shelf page after successful login
         return redirect('/shelf')
 
