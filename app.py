@@ -30,11 +30,6 @@ def get_db():
     """Connect to the SQLite database, creating it if it doesn't exist, and enable WAL mode."""
     conn = sqlite3.connect(DATABASE, timeout=10, isolation_level=None)
     conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
-
-    # TODO: learn more about PRAGMA statements
-    conn.execute('PRAGMA journal_mode=WAL;') # Use Write-Ahead Logging for better concurrency
-    conn.execute('PRAGMA foreign_keys=ON;')  # Enable foreign key constraints
-    logger.info("Connected to the database successfully.")
     return conn
 
 def init_db():
@@ -49,6 +44,10 @@ def init_db():
                 logger.error(f"Failed to initialize database: {e}")
                 import sys
                 sys.exit(1)
+            # TODO: learn more about PRAGMA statements
+            db.execute('PRAGMA journal_mode=WAL;') # Use Write-Ahead Logging for better concurrency
+            db.execute('PRAGMA foreign_keys=ON;')  # Enable foreign key constraints
+    logger.info("Connected to the database successfully.")
 
 
 # Endpoint to check if the server is running
@@ -86,10 +85,21 @@ def write():
         if content:
             # Insert the post into the database
             with get_db() as db:
-                db.execute(
-                    "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-                    (user_id, content)
-                )
+                # Ensure user exists before inserting post
+                user = db.execute("SELECT id FROM user WHERE id = ?", (user_id,)).fetchone()
+                if not user:
+                    logger.error(f"Foreign key constraint failed: user_id {user_id} does not exist.")
+                    flash('User does not exist. Please log in again.', 'error')
+                    return redirect('/login')
+                try:
+                    db.execute(
+                        "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                        (user_id, content)
+                    )
+                except sqlite3.IntegrityError as e:
+                    logger.error(f"IntegrityError while inserting post: {e}")
+                    flash('Failed to save post due to a database error.', 'error')
+                    return redirect('/write')
             logger.info(f"User {user_id} saved a new article.")
         return redirect('/shelf')
 
@@ -265,7 +275,7 @@ def login():
                 "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
                 (user['id'],)
             )
-            logger.info(f"User {username} logged in successfully.")
+            logger.info(f"User {username} userID:{user['id']} logged in successfully.")
         # Redirect to the shelf page after successful login
         return redirect('/shelf')
 
