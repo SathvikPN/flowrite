@@ -30,7 +30,11 @@ def get_db():
     """Connect to the SQLite database, creating it if it doesn't exist, and enable WAL mode."""
     conn = sqlite3.connect(DATABASE, timeout=10, isolation_level=None)
     conn.row_factory = sqlite3.Row  # Enable dict-like access to rows
-    conn.execute('PRAGMA journal_mode=WAL;')
+
+    # TODO: learn more about PRAGMA statements
+    conn.execute('PRAGMA journal_mode=WAL;') # Use Write-Ahead Logging for better concurrency
+    conn.execute('PRAGMA foreign_keys=ON;')  # Enable foreign key constraints
+    logger.info("Connected to the database successfully.")
     return conn
 
 def init_db():
