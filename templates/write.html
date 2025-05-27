@@ -23,36 +23,36 @@
 {% block footer %}
 <footer class="bottom-toolbar">
     <div class="container">
-        <div class="toolbar-content d-flex flex-wrap align-items-center gap-2">
-            <!-- Left side: brand + fonts (will stay together) -->
-            <div class="d-flex align-items-center gap-2 me-auto">
-                <button type="button" id="logo-btn" class="btn btn-subtle py-1 px-2 text-muted" href="/">Flowrite</button>
+        <div class="toolbar-content d-flex flex-wrap align-items-center">
+            <div class="d-flex align-items-center flex-wrap w-100">
+                <button type="button" id="logo-btn" class="btn btn-subtle py-1 px-2 text-muted me-2"  href="/">Flowrite</button>
                 
-                <div class="font-controls d-flex gap-1">
-                    <select id="font-family" class="control-select form-select-sm py-1 px-2">
-                        <option value="system-ui">System UI</option>
-                        <option value="inter">Inter</option>
-                        <option value="georgia">Georgia</option>
-                        <option value="helvetica">Helvetica</option>
-                        <option value="arial">Arial</option>
-                        <option value="menlo">Menlo</option>
-                        <option value="monaco">Monaco</option>
-                    </select>
-                    <select id="font-size" class="control-select form-select-sm py-1 px-2">
-                        <option value="14">14px</option>
-                        <option value="16" selected>16px</option>
-                        <option value="18">18px</option>
-                        <option value="20">20px</option>
-                        <option value="24">24px</option>
-                    </select>
-                </div>
-            </div>
+                <div class="d-flex flex-grow-1 justify-content-between align-items-center flex-wrap">
+                    <div class="font-controls d-flex gap-1">
+                        <select id="font-family" class="control-select form-select-sm py-1 px-2">
+                            <option value="system-ui">System UI</option>
+                            <option value="inter">Inter</option>
+                            <option value="georgia">Georgia</option>
+                            <option value="helvetica">Helvetica</option>
+                            <option value="arial">Arial</option>
+                            <option value="menlo">Menlo</option>
+                            <option value="monaco">Monaco</option>
+                        </select>
+                        <select id="font-size" class="control-select form-select-sm py-1 px-2">
+                            <option value="14">14px</option>
+                            <option value="16" selected>16px</option>
+                            <option value="18">18px</option>
+                            <option value="20">20px</option>
+                            <option value="24">24px</option>
+                        </select>
+                    </div>
 
-            <!-- Right side: export + save -->
-            <div class="action-buttons d-flex align-items-center gap-2">
-                <button type="button" id="export-btn" class="btn btn-subtle py-1 px-2 text-muted">Export</button>
-                <span class="mx-1 text-muted">•</span>
-                <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
+                    <div class="action-buttons d-flex align-items-center gap-2 ms-2">
+                        <button type="button" id="export-btn" class="btn btn-subtle py-1 px-2 text-muted">Export</button>
+                        <span class="mx-1 text-muted">•</span>
+                        <button type="submit" form="write-form" class="btn btn-subtle py-1 px-2 text-muted">Save</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -122,43 +122,29 @@
     outline: none;
 }
 
-.breadcrumb {
-    margin: 0;
-    padding: 0;
+.btn-subtle {
+    background: transparent;
+    border: none;
 }
 
-.breadcrumb-item {
-    color: #666;
-    font-size: 14px;
+.btn-subtle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
-.breadcrumb-item a {
-    color: #666;
-    text-decoration: none;
-}
+@media (max-width: 576px) {
+    .toolbar-content {
+        row-gap: 0.5rem !important;
+    }
+    
+    #logo-btn {
+        width: 100%;
+        text-align: left;
+        margin-bottom: 0.5rem;
+    }
 
-.breadcrumb-item a:hover {
-    color: #333;
-}
-
-.action-buttons {
-    display: flex;
-    align-items: center;
-}
-
-.btn-link {
-    color: #666;
-    text-decoration: none;
-    font-size: 14px;
-}
-
-.btn-link:hover {
-    color: #333;
-    text-decoration: none;
-}
-
-.text-muted {
-    color: #999 !important;
+    .font-controls {
+        margin-right: auto;
+    }
 }
 </style>
 
