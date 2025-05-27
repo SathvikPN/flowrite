@@ -1,10 +1,14 @@
-from flask import Flask, jsonify, render_template, request, redirect
+from flask import Flask, jsonify, render_template, request, redirect, session
 import logging
 import markdown
 from functools import wraps
 
 app = Flask(__name__)
 
+# TODO: set a secret key for session management(why is this needed?)
+app.secret_key = 'your-very-secret-key'  # Needed for session management and security
+
+# TODO: stream log both into console and file
 # Configure standard logging
 logging.basicConfig(
     level=logging.INFO,
@@ -15,19 +19,18 @@ logger = logging.getLogger(__name__)
 
 @app.before_request
 def before_request():
-    pass
-    # if request.method == 'POST':
-    #     data = request.form.to_dict()
-    # elif request.method == 'GET':
-    #     data = request.args.to_dict()
+    # Debug and Monitoring: Log incoming requests
     # logger.info(f"Received request: {request.method} {request.path} from {request.remote_addr} \ndata: {data}")
+    pass
 
+# Endpoint to check if the server is running
 @app.route('/health')
 def health():
-    logger.info("got ping for health check")
-    return jsonify({"status": "ok"})
+    # TODO: add checks: database connection, external service availability
+    logger.info("Health check endpoint called")
+    return jsonify({"status": "OK"})
 
-
+# Endpoint for landing page
 @app.route('/')
 def index():
     with open('content/index_article.md', 'r', encoding='utf-8') as file:
@@ -38,32 +41,20 @@ def index():
         "message": "Hompe Page for Flowrite",
     }, article_html=article_html)
 
+# Endpoint to serve WRITE editor page
 @app.route('/write', methods=['GET', 'POST'])
 def write():
+    # user submitted content from the editor to save
     if request.method == 'POST':
-        # Handle form submission logic here
-        # print(f"Received save from write page: content: \n{request.form.get('content')}")
-        redirect('/shelf')
+        logger.info(f"Received save from write page: content: \n{request.form.get('content')}")
+        return redirect('/shelf')
     
 
     return render_template('write.html', data = {
         "title": "Write",
     })
 
-def login_required(f):
-    """
-    Decorate routes to require login.
 
-    https://flask.palletsprojects.com/en/latest/patterns/viewdecorators/
-    """
-
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if session.get("user_id") is None:
-            return redirect("/login")
-        return f(*args, **kwargs)
-
-    return decorated_function
 
 @app.route('/shelf')
 # @login_required
@@ -80,6 +71,18 @@ def shelf():
         "title": "Shelf",
         "articles": articles,
     })
+
+
+# Middleware to check if user is logged in
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Unauthenticated: user not logged in (no user_id in session)
+        if 'user_id' not in session:
+            logger.warning("Unauthenticated access for the requested resource")
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 if __name__ == '__main__':
