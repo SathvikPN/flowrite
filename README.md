@@ -16,3 +16,4 @@ TODO:
 
 
 - learn about PRAGMA statements. got db lock error which resolved using db context.
+- pagination and offset when huge number of posts are saved.
