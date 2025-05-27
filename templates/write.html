@@ -2,6 +2,9 @@
 
 {% block title %} {{ data.title }} {% endblock %}
 
+{% block navbar %}
+{% endblock %}
+
 {% block main %}
 <div class="container pt-6">
     <form id="write-form" autocomplete="off">
@@ -9,34 +12,37 @@
                   placeholder="Start writing..." 
                   spellcheck="true"
                   autofocus></textarea>
-        
-        <div class="bottom-toolbar">
-            <div class="container">
-                <div class="toolbar-content">
-                    <select id="font-family" class="control-select">
-                        <option value="system-ui">System UI</option>
-                        <option value="inter">Inter</option>
-                        <option value="georgia">Georgia</option>
-                        <option value="helvetica">Helvetica</option>
-                        <option value="arial">Arial</option>
-                        <option value="menlo">Menlo</option>
-                        <option value="monaco">Monaco</option>
-                    </select>
-                    <span class="vr mx-4"></span>
-                    <select id="font-size" class="control-select">
-                        <option value="14">14px</option>
-                        <option value="16" selected>16px</option>
-                        <option value="18">18px</option>
-                        <option value="20">20px</option>
-                        <option value="24">24px</option>
-                    </select>
-                    <span class="vr mx-4"></span>
-                    <button type="submit" class="btn btn-link p-0">Submit</button>
-                </div>
-            </div>
-        </div>
     </form>
 </div>
+{% endblock %}
+
+{% block footer %}
+<footer class="bottom-toolbar">
+    <div class="container">
+        <div class="toolbar-content">
+            <select id="font-family" class="control-select">
+                <option value="system-ui">System UI</option>
+                <option value="inter">Inter</option>
+                <option value="georgia">Georgia</option>
+                <option value="helvetica">Helvetica</option>
+                <option value="arial">Arial</option>
+                <option value="menlo">Menlo</option>
+                <option value="monaco">Monaco</option>
+            </select>
+            <span class="vr mx-4"></span>
+            <select id="font-size" class="control-select">
+                <option value="14">14px</option>
+                <option value="16" selected>16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+                <option value="24">24px</option>
+            </select>
+            <span class="vr mx-4"></span>
+            <button type="submit" class="btn btn-link p-0">Submit</button>
+        </div>
+    </div>
+</footer>
+
 
 <style>
 #write-form {
