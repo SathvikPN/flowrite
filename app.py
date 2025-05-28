@@ -386,7 +386,7 @@ def register():
                     return render_template('register.html', data={"error": "Username already exists"}), 400
                 
                 # Hash the password with strong parameters
-                hashed_password = generate_password_hash(password, method='pbkdf2:sha256:260000')
+                hashed_password = generate_password_hash(password, method='pbkdf2')
                 
                 # Insert user with creation timestamp
                 db.execute(
