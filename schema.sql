@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS user (
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP
+    last_login TIMESTAMP,
+    last_login_ip TEXT
 );
 
 CREATE TABLE IF NOT EXISTS post (
