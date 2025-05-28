@@ -5,26 +5,133 @@ from functools import wraps
 import sqlite3
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from datetime import datetime
+import uuid
+import logging.handlers
+import secrets
 
 app = Flask(__name__)
 
-# TODO: set a secret key for session management(why is this needed?)
-app.secret_key = 'your-very-secret-key'  # Needed for session management and security
-
-# TODO: stream log both into console and file
-# Configure standard logging
-logging.basicConfig(
-    level=logging.INFO,
-    # format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s'
-    format='%(levelname)s %(name)s %(threadName)s : %(message)s'
+# Security Configurations (cursor assisted rewrite)
+app.secret_key = secrets.token_hex(32)  # Generate a secure random key
+app.config.update(
+    SESSION_COOKIE_SECURE=True,          # Only send cookies over HTTPS
+    SESSION_COOKIE_HTTPONLY=True,        # Prevent JavaScript access to session cookie
+    SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
+    PERMANENT_SESSION_LIFETIME=1800,     # Session timeout (30 minutes)
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024 # Max content length (10MB)
 )
-logger = logging.getLogger(__name__)
 
+# Rate Limiter Configuration (cursor assisted rewrite) read: https://flask-limiter.readthedocs.io/en/stable/
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Use memory for development, redis:// for production
+)
+
+# Enhanced Logging Configuration (cursor assisted rewrite)
+def setup_logging():
+    log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Main application logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    
+    # Console Handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_format = logging.Formatter('%(levelname)s - %(message)s')
+    console_handler.setFormatter(console_format)
+    
+    # File Handler for general logs
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        os.path.join(log_dir, 'app.log'),
+        when='midnight',
+        interval=1,
+        backupCount=30
+    )
+    file_handler.setLevel(logging.INFO)
+    file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_format)
+    
+    # Security Event Handler
+    security_handler = logging.handlers.TimedRotatingFileHandler(
+        os.path.join(log_dir, 'security.log'),
+        when='midnight',
+        interval=1,
+        backupCount=90
+    )
+    security_handler.setLevel(logging.WARNING)
+    security_format = logging.Formatter(
+        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - %(message)s'
+    )
+    security_handler.setFormatter(security_format)
+    
+    # Add handlers to logger
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    logger.addHandler(security_handler)
+    
+    return logger
+
+logger = setup_logging()
+
+# Security Context for Logging (cursor assisted)
+class SecurityLoggingFilter(logging.Filter):
+    def filter(self, record):
+        record.remote_addr = getattr(request, 'remote_addr', 'No IP')
+        record.user_id = session.get('user_id', 'No User')
+        record.url = getattr(request, 'url', 'No URL')
+        return True
+
+logger.addFilter(SecurityLoggingFilter())
+
+# Request tracking
 @app.before_request
 def before_request():
-    # Debug and Monitoring: Log incoming requests
-    # logger.info(f"Received request: {request.method} {request.path} from {request.remote_addr} \ndata: {data}")
-    pass
+    # Generate request ID for tracking
+    request.id = str(uuid.uuid4())
+    # Add timestamp for request duration tracking
+    request._start_time = datetime.utcnow()
+    
+    # Log incoming requests with context (cursor assisted)
+    logger.info(
+        f"Request {request.id}: {request.method} {request.path}",
+        extra={
+            'request_id': request.id,
+            'method': request.method,
+            'path': request.path,
+            'ip': request.remote_addr,
+            'user_agent': request.user_agent.string
+        }
+    )
+
+@app.after_request
+def after_request(response):
+    # Calculate request duration
+    duration = datetime.utcnow() - request._start_time
+    
+    # Log response details
+    logger.info(
+        f"Request {request.id} completed in {duration.total_seconds():.3f}s with status {response.status_code}",
+        extra={
+            'request_id': request.id,
+            'duration': duration.total_seconds(),
+            'status_code': response.status_code
+        }
+    )
+    
+    # Add security headers (cursor assisted)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    
+    return response
 
 def get_db():
     """Connect to the SQLite database, creating it if it doesn't exist, and enable WAL mode."""
@@ -49,6 +156,16 @@ def init_db():
             db.execute('PRAGMA foreign_keys=ON;')  # Enable foreign key constraints
     logger.info("Connected to the database successfully.")
 
+# Middleware to check if user is logged in
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Unauthenticated: user not logged in (no user_id in session)
+        if 'user_id' not in session:
+            logger.warning("Unauthenticated access for the requested resource")
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Endpoint to check if the server is running
 @app.route('/health')
@@ -70,55 +187,42 @@ def index():
 
 # Endpoint to serve WRITE editor page
 @app.route('/write', methods=['GET', 'POST'])
+@login_required
+@limiter.limit("30 per hour")  # Prevent spam (cursor assisted)
 def write():
-    # user submitted content from the editor to save
     if request.method == 'POST':
-        # allow only authenticated users to save content
-        if 'user_id' not in session:
-            logger.warning(f"Unauthenticated user attempted to save content. IP: {request.remote_addr} User-Agent: {request.headers.get('User-Agent')}")
-            return render_template('login.html', data={"title": "Login", "message": "login to save content."})
-
-        logger.info(f"Received save from write page. content: \n{request.form.get('content')}")
-
-        user_id = session.get('user_id')
         content = request.form.get('content')
-        if content:
-            # Insert the post into the database
-            with get_db() as db:
-                # Ensure user exists before inserting post
-                user = db.execute("SELECT id FROM user WHERE id = ?", (user_id,)).fetchone()
-                if not user:
-                    logger.error(f"Foreign key constraint failed: user_id {user_id} does not exist.")
-                    flash('User does not exist. Please log in again.', 'error')
-                    return redirect('/login')
-                try:
-                    db.execute(
-                        "INSERT INTO post (user_id, content, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-                        (user_id, content)
-                    )
-                except sqlite3.IntegrityError as e:
-                    logger.error(f"IntegrityError while inserting post: {e}")
-                    flash('Failed to save post due to a database error.', 'error')
-                    return redirect('/write')
-            logger.info(f"User {user_id} saved a new article.")
+        user_id = session.get('user_id')
+
+        if not content:
+            logger.warning(f"Empty content submission attempt by user {user_id}")
+            flash('Content cannot be empty', 'error')
+            return redirect('/write')
+
+        if len(content) > 50000:  # Example content length limit
+            logger.warning(f"Oversized content submission attempt by user {user_id}")
+            flash('Content exceeds maximum length', 'error')
+            return redirect('/write')
+
+        with get_db() as db:
+            try:
+                db.execute(
+                    "INSERT INTO post (user_id, content, created_at, ip_address) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
+                    (user_id, content, request.remote_addr)
+                )
+                logger.info(f"New post created by user {user_id}")
+                
+            except sqlite3.Error as e:
+                logger.error(f"Database error while saving post: {e}")
+                flash('Failed to save post. Please try again.', 'error')
+                return redirect('/write')
+
         return redirect('/shelf')
 
-    return render_template('write.html', data = {
-        "title": "Write",
-        "message": "Start writing...",
-    })
+    return render_template('write.html', data={"title": "Write"})
 
 
-# Middleware to check if user is logged in
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Unauthenticated: user not logged in (no user_id in session)
-        if 'user_id' not in session:
-            logger.warning("Unauthenticated access for the requested resource")
-            return redirect('/login')
-        return f(*args, **kwargs)
-    return decorated_function
+
 
 
 @app.route('/shelf')
@@ -201,11 +305,40 @@ def edit_post(post_id):
 # TODO: check if user is the owner of the post
 @app.route('/posts/<int:post_id>/delete', methods=['POST'])
 @login_required
+@limiter.limit("10 per minute")  # Prevent rapid deletion (cursor assisted)
 def delete_post(post_id):
-    # Delete post from database
+    user_id = session.get('user_id')
+    
     with get_db() as db:
-        db.execute("DELETE FROM post WHERE id = ?", (post_id,))
-    flash('Post deleted successfully', 'success')
+        try:
+            # First check if post exists and belongs to user
+            post = db.execute(
+                "SELECT user_id FROM post WHERE id = ?", 
+                (post_id,)
+            ).fetchone()
+            
+            if not post:
+                logger.warning(f"Delete attempt on non-existent post {post_id} by user {user_id}")
+                flash('Post not found', 'error')
+                return redirect('/shelf')
+            
+            if post['user_id'] != user_id:
+                logger.warning(
+                    f"Unauthorized delete attempt on post {post_id} by user {user_id}",
+                    extra={'severity': 'high', 'attempt_type': 'unauthorized_deletion'}
+                )
+                flash('Unauthorized action', 'error')
+                return redirect('/shelf'), 403
+            
+            # If checks pass, delete the post
+            db.execute("DELETE FROM post WHERE id = ?", (post_id,))
+            logger.info(f"Post {post_id} deleted by user {user_id}")
+            flash('Post deleted successfully', 'success')
+            
+        except sqlite3.Error as e:
+            logger.error(f"Database error while deleting post {post_id}: {e}")
+            flash('Failed to delete post. Please try again.', 'error')
+    
     return redirect('/shelf')
 
 
@@ -213,71 +346,90 @@ def delete_post(post_id):
 
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5 per hour")  # Strict limit on registration attempts
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         confirmation = request.form.get('confirmation')
-        # confirm passwords match
+
+        # Enhanced input validation
+        if not username or not password or not confirmation:
+            logger.warning(f"Registration attempt with missing fields from {request.remote_addr}")
+            return render_template('register.html', data={"error": "All fields are required"}), 400
+
         if password != confirmation:
-            return render_template(
-            'register.html',
-            data={"title": "Register", "error": "Mismatched passwords. Please confirm your password."}
-            ), 400  # 400 Bad Request for client-side input errors
+            logger.warning(f"Registration attempt with mismatched passwords from {request.remote_addr}")
+            return render_template('register.html', data={"error": "Mismatched Passwords. Please reconfirm"}), 400
         
         with get_db() as db:
-            # Check if username already exists
-            user = db.execute(
-                "SELECT * FROM user WHERE username = ?", (username,)
-            ).fetchone()
-            if user:
-                # username already registered, redirect back with message
-                return render_template('register.html', data={"title": "Register", "error": "Username is already registered, try a different username."})
-            
-            # Insert user into user table
-            # Hash the password for security
-            hashed_password = generate_password_hash(password, method='pbkdf2')
-            db.execute(
-                "INSERT INTO user (username, password) VALUES (?, ?)",
-                (username, hashed_password)
-            )
-            logger.info(f"User {username} registered successfully.")
+            try:
+                # Check if username already exists
+                user = db.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone()
+                if user:
+                    logger.warning(f"Registration attempt with existing username '{username}' from {request.remote_addr}")
+                    return render_template('register.html', data={"error": "Username already exists"}), 400
+                
+                # Hash the password with strong parameters
+                hashed_password = generate_password_hash(password, method='pbkdf2:sha256:260000')
+                
+                # Insert user with creation timestamp
+                db.execute(
+                    "INSERT INTO user (username, password, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    (username, hashed_password)
+                )
+                logger.info(f"New user registered: {username} from {request.remote_addr}")
+                
+            except sqlite3.Error as e:
+                logger.error(f"Database error during registration: {e}")
+                return render_template('register.html', data={"error": "Registration failed. Please try again."}), 500
+
         return redirect('/login')
     return render_template('register.html', data={"title": "Register"})
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")  # Prevent brute force attempts
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         
+        # Enhanced input validation
+        if not username or not password:
+            logger.warning(f"Login attempt with missing credentials from {request.remote_addr}")
+            return render_template('login.html', data={"error": "Both username and password are required"}), 400
+
         with get_db() as db:
-            user = db.execute(
-                "SELECT * FROM user WHERE username = ?", (username,)
-            ).fetchone()
+            try:
+                user = db.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone()
 
-            if not user:
-                return render_template('login.html', data={
-                    "error": "Username not found, please register first.",
-                })
-            
-            # FIX: Use check_password_hash to verify password
-            if not check_password_hash(user['password'], password):
-                return render_template('login.html', data={
-                    "error": "Invalid password. Please try again.",
-                })
+                if not user or not check_password_hash(user['password'], password):
+                    logger.warning(
+                        f"Failed login attempt for user '{username}' from {request.remote_addr}",
+                        extra={'attempt_type': 'invalid_credentials'}
+                    )
+                    # Use a generic error message to prevent user enumeration
+                    return render_template('login.html', data={"error": "Invalid username or password"}), 401
 
-            # User authenticated successfully
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            # Optionally update last_login
-            db.execute(
-                "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-                (user['id'],)
-            )
-            logger.info(f"User {username} userID:{user['id']} logged in successfully.")
-        # Redirect to the shelf page after successful login
+                # Successful login
+                session.clear()  # Clear any existing session
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session.permanent = True  # Use permanent session with lifetime set in config
+                
+                # Update last login timestamp and IP
+                db.execute(
+                    "UPDATE user SET last_login = CURRENT_TIMESTAMP, last_login_ip = ? WHERE id = ?",
+                    (request.remote_addr, user['id'])
+                )
+                
+                logger.info(f"Successful login for user '{username}' from {request.remote_addr}")
+                
+            except sqlite3.Error as e:
+                logger.error(f"Database error during login: {e}")
+                return render_template('login.html', data={"error": "Login failed. Please try again."}), 500
+
         return redirect('/shelf')
 
     return render_template('login.html', data={"title": "Login"})
