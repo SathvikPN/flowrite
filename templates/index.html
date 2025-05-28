@@ -3,12 +3,27 @@
 {% block title %} {{ data.title }} {% endblock %}
 
 {% block main %}
-<div class="container pt-5">
-    <article class="text-content mt-6 mb-5">
-        {{ article_html|safe }}
-    <div class="d-flex justify-content-mid">
-        <a href="/write" class="btn btn-outline-secondary">start writing</a>
+<div class="container pt-5" style="min-height: 100vh; position: relative; padding-bottom: 80px;">
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+        <article class="text-content text-center">
+            <div class="mb-4">
+                Welcome to your clean writing space. <br>
+                A personal invitation to clarity and composure. <br>
+            </div>
+            <div>
+                <a href="/write" class="btn btn-outline-secondary">start writing</a>
+            </div>
+
+        
+        </article>
+    
     </div>
-    </article>
+
+    <footer style="position: sticky; left: 0; bottom: 0; width: 100%; background: white; z-index: 1030;">
+        <p class="text-muted text-center my-2">
+            Flowrite is a minimalist write space without distractions. free 
+            <a href="/register">register</a> to save in shelf. 
+        </p>
+    </footer>
 </div>
 {% endblock %}
