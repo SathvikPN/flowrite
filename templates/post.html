@@ -3,17 +3,16 @@
 {% block title %} {{ post.title }} {% endblock %}
 
 {% block main %}
-<div class="container pt-6">
+<div class="container py-5">
     <article class="post-view">
-        <header class="post-header mb-5">
-            <h1 class="post-title mb-3">{{ post.title }}</h1>
-            <div class="post-meta text-muted">
+        <header class="post-header mb-4">
+            <div class="post-meta text-muted mb-4">
                 <small>{{ post.created_at }}</small>
             </div>
         </header>
 
         <div class="post-content">
-            {{ post.content | safe | replace('\n', '<br>') }}
+            <pre class="content-pre">{{ post.content }}</pre>
         </div>
 
         <footer class="post-footer mt-5 pt-4 border-top">
@@ -34,19 +33,26 @@
 .post-view {
     max-width: 800px;
     margin: 0 auto;
-}
-
-.post-title {
-    color: #444;
-    font-weight: 500;
-    font-size: 2rem;
-    line-height: 1.3;
+    margin-bottom: calc(56px + 2rem); /* footer height + padding */
 }
 
 .post-content {
-    font-size: 1.1rem;
-    line-height: 1.7;
     color: #444;
+    line-height: 1.7;
+}
+
+.content-pre {
+    font-family: inherit;
+    font-size: 1.1rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    line-height: inherit;
+    overflow: visible;
 }
 
 .btn-subtle {
