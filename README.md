@@ -35,3 +35,16 @@ TODO:
 - `flowrite.db-shm` — shared memory for coordination
 
 You should keep all three files together for the database to work correctly in WAL mode.
+
+
+
+## Testing 
+
+- visitor see first time welcome screen. description and footer sticky to bottom and no overlaps. both screens (desktop and smartphone)
+- start writing > write page 
+- export working with all whitespace newlines preserved
+- shelf or login takes to login page
+- TODO: logs are crowded, multiple logs.
+- invalid login username password error fine
+- register page mismatched pwd fine. 
+- proper register > login page 

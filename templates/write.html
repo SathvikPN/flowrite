@@ -39,11 +39,11 @@
                             <option value="monaco">Monaco</option>
                         </select>
                         <select id="font-size" class="control-select form-select-sm py-1 px-2">
-                            <option value="14">14px</option>
-                            <option value="16" selected>16px</option>
-                            <option value="18">18px</option>
+                            <option value="16">16px</option>
+                            <option value="18" selected>18px</option>
                             <option value="20">20px</option>
                             <option value="24">24px</option>
+                            <option value="28">28px</option>
                         </select>
                     </div>
 
@@ -208,6 +208,19 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedSize) {
         fontSize.value = savedSize;
         editor.style.fontSize = `${savedSize}px`;
+        updateCaretSize(savedSize);
+    }
+
+    // Function to update caret size based on font size
+    function updateCaretSize(size) {
+        const sizeNum = parseInt(size);
+        if (sizeNum <= 16) {
+            editor.style.caretWidth = '1px';
+        } else if (sizeNum <= 20) {
+            editor.style.caretWidth = '2px';
+        } else {
+            editor.style.caretWidth = '3px';
+        }
     }
 
     // Handle font family changes
@@ -218,9 +231,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle font size changes
     fontSize.addEventListener('change', function() {
-        editor.style.fontSize = `${this.value}px`;
-        localStorage.setItem('preferredSize', this.value);
+        const size = this.value;
+        editor.style.fontSize = `${size}px`;
+        localStorage.setItem('preferredSize', size);
+        updateCaretSize(size);
     });
+
+    // Initialize caret size
+    updateCaretSize(fontSize.value);
 
     // Handle export
     exportBtn.addEventListener('click', function() {

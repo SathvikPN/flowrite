@@ -13,6 +13,7 @@ import logging.handlers
 import secrets
 
 app = Flask(__name__)
+MAX_CHARS_PER_POST = 30000  # Example limit for post content length
 
 # Security Configurations (cursor assisted rewrite)
 app.secret_key = secrets.token_hex(32)  # Generate a secure random key
@@ -28,7 +29,7 @@ app.config.update(
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=["2000 per day", "500 per hour"],
     storage_uri="memory://"  # Use memory for development, redis:// for production
 )
 
@@ -210,7 +211,7 @@ def index():
 
 # Endpoint to serve WRITE editor page
 @app.route('/write', methods=['GET', 'POST'])
-@limiter.limit("30 per hour")  # Prevent spam (cursor assisted)
+@limiter.limit("120 per hour")  # Prevent spam (cursor assisted)
 def write():
     if request.method == 'POST':
         content = request.form.get('content')
@@ -221,7 +222,7 @@ def write():
             flash('Content cannot be empty', 'error')
             return redirect('/write')
 
-        if len(content) > 50000:  # Example content length limit
+        if len(content) > MAX_CHARS_PER_POST:  # Example content length limit
             logger.warning(f"Oversized content submission attempt by user {user_id}")
             flash('Content exceeds maximum length', 'error')
             return redirect('/write')
@@ -323,7 +324,7 @@ def edit_post(post_id):
 # TODO: check if user is the owner of the post
 @app.route('/posts/<int:post_id>/delete', methods=['POST'])
 @login_required
-@limiter.limit("10 per minute")  # Prevent rapid deletion (cursor assisted)
+@limiter.limit("50 per minute")  # Prevent rapid deletion (cursor assisted)
 def delete_post(post_id):
     user_id = session.get('user_id')
     
@@ -360,7 +361,7 @@ def delete_post(post_id):
     return redirect('/shelf')
 
 @app.route('/register', methods=['GET', 'POST'])
-@limiter.limit("5 per hour")  # Strict limit on registration attempts
+@limiter.limit("50 per hour")  # Strict limit on registration attempts
 def register():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -402,7 +403,7 @@ def register():
     return render_template('register.html', data={"title": "Register"})
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")  # Prevent brute force attempts
+@limiter.limit("60 per minute")  # Prevent brute force attempts
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
