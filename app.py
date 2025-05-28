@@ -41,7 +41,7 @@ class SecurityLoggingFilter(logging.Filter):
             if has_request_context():
                 record.remote_addr = request.remote_addr
                 record.user_id = session.get('user_id', 'No User')
-                record.url = request.url
+                record.url = request.path
             else:
                 record.remote_addr = 'No Request Context'
                 record.user_id = 'No Request Context'
@@ -50,6 +50,23 @@ class SecurityLoggingFilter(logging.Filter):
             record.remote_addr = 'Error'
             record.user_id = 'Error'
             record.url = 'Error'
+        return True
+
+# Request Filter to reduce noise (cursor assisted)
+class RequestFilter(logging.Filter):
+    SKIP_PATHS = {
+        '.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg',  # Static files
+        '/static/', '/favicon.ico'  # Common static paths
+    }
+    
+    def filter(self, record):
+        if not hasattr(record, 'url'):
+            return True
+        
+        # Skip static file requests
+        if any(ext in record.url for ext in self.SKIP_PATHS):
+            return False
+            
         return True
 
 # Enhanced Logging Configuration
@@ -61,10 +78,10 @@ def setup_logging():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     
-    # Console Handler
+    # Console Handler - minimal output
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    console_format = logging.Formatter('%(levelname)s - %(message)s')
+    console_format = logging.Formatter('%(levelname)s: %(message)s')
     console_handler.setFormatter(console_format)
     
     # File Handler for general logs
@@ -76,7 +93,7 @@ def setup_logging():
     )
     file_handler.setLevel(logging.INFO)
     file_format = logging.Formatter(
-        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - %(message)s'
+        '%(asctime)s - %(levelname)s - [%(remote_addr)s] %(message)s'
     )
     file_handler.setFormatter(file_format)
     
@@ -96,13 +113,19 @@ def setup_logging():
     # Clear any existing handlers
     logger.handlers.clear()
     
-    # Add handlers to logger
+    # Add handlers and filters
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
     logger.addHandler(security_handler)
     
-    # Add the security filter
-    logger.addFilter(SecurityLoggingFilter())
+    # Add filters
+    request_filter = RequestFilter()
+    security_filter = SecurityLoggingFilter()
+    
+    logger.addFilter(security_filter)
+    logger.addFilter(request_filter)
+    file_handler.addFilter(request_filter)
+    security_handler.addFilter(request_filter)
     
     return logger
 
@@ -111,39 +134,30 @@ logger = setup_logging()
 
 @app.before_request
 def before_request():
-    # Generate request ID for tracking
-    request.id = str(uuid.uuid4())
-    # Add timestamp for request duration tracking
-    request._start_time = datetime.utcnow()
+    # Skip logging for static files and health checks
+    if any(ext in request.path for ext in RequestFilter.SKIP_PATHS):
+        return
     
-    # Log incoming requests with context
-    logger.info(
-        f"Request {request.id}: {request.method} {request.path}",
-        extra={
-            'request_id': request.id,
-            'method': request.method,
-            'path': request.path,
-            'ip': request.remote_addr,
-            'user_agent': request.user_agent.string if request.user_agent else 'No User Agent'
-        }
-    )
+    # Only log main route accesses (TODO: REVIEW)
+    if request.method != 'GET' or not request.path.endswith('/'):
+        request.id = str(uuid.uuid4())
+        request._start_time = datetime.utcnow()
+        logger.info(f"{request.method} {request.path}")
 
 @app.after_request
 def after_request(response):
-    # Calculate request duration
-    duration = datetime.utcnow() - request._start_time
+    # Skip logging for static files and health checks
+    if any(ext in request.path for ext in RequestFilter.SKIP_PATHS):
+        return response
     
-    # Log response details
-    logger.info(
-        f"Request {request.id} completed in {duration.total_seconds():.3f}s with status {response.status_code}",
-        extra={
-            'request_id': request.id,
-            'duration': duration.total_seconds(),
-            'status_code': response.status_code
-        }
-    )
+    # Only log non-successful responses and non-GET requests
+    if response.status_code >= 400 or request.method != 'GET':
+        duration = datetime.utcnow() - getattr(request, '_start_time', datetime.utcnow())
+        logger.info(
+            f"{request.method} {request.path} - Status: {response.status_code} - Duration: {duration.total_seconds():.3f}s"
+        )
     
-    # Add security headers (cursor assisted)
+    # Add security headers
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -214,6 +228,11 @@ def index():
 @limiter.limit("120 per hour")  # Prevent spam (cursor assisted)
 def write():
     if request.method == 'POST':
+        # Check if user is logged in
+        if 'user_id' not in session:
+            logger.warning(f"Unauthenticated save attempt from {request.remote_addr}")
+            return redirect(url_for('login', next=request.url))
+
         content = request.form.get('content')
         user_id = session.get('user_id')
 
@@ -234,6 +253,7 @@ def write():
                     (user_id, content, request.remote_addr)
                 )
                 logger.info(f"New post created by user {user_id}")
+                flash('Post saved successfully', 'success')
                 
             except sqlite3.Error as e:
                 logger.error(f"Database error while saving post: {e}")
@@ -408,6 +428,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        next_url = request.args.get('next', '/shelf')  # Get the next URL from query params
         
         # Enhanced input validation
         if not username or not password:
@@ -444,7 +465,8 @@ def login():
                 logger.error(f"Database error during login: {e}")
                 return render_template('login.html', data={"error": "Login failed. Please try again."}), 500
 
-        return redirect('/shelf')
+        # Redirect to the next URL after successful login
+        return redirect(next_url)
 
     return render_template('login.html', data={"title": "Login"})
 

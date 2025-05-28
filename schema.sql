@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS post (
     user_id INTEGER NOT NULL,
     content TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address TEXT,
     updated_at TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES user(id)
 );
