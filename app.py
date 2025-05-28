@@ -32,7 +32,26 @@ limiter = Limiter(
     storage_uri="memory://"  # Use memory for development, redis:// for production
 )
 
-# Enhanced Logging Configuration (cursor assisted rewrite)
+# Security Context for Logging
+class SecurityLoggingFilter(logging.Filter):
+    def filter(self, record):
+        try:
+            from flask import has_request_context, request
+            if has_request_context():
+                record.remote_addr = request.remote_addr
+                record.user_id = session.get('user_id', 'No User')
+                record.url = request.url
+            else:
+                record.remote_addr = 'No Request Context'
+                record.user_id = 'No Request Context'
+                record.url = 'No Request Context'
+        except Exception:
+            record.remote_addr = 'Error'
+            record.user_id = 'Error'
+            record.url = 'Error'
+        return True
+
+# Enhanced Logging Configuration
 def setup_logging():
     log_dir = os.path.join(os.path.dirname(__file__), 'logs')
     os.makedirs(log_dir, exist_ok=True)
@@ -55,7 +74,9 @@ def setup_logging():
         backupCount=30
     )
     file_handler.setLevel(logging.INFO)
-    file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_format = logging.Formatter(
+        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - %(message)s'
+    )
     file_handler.setFormatter(file_format)
     
     # Security Event Handler
@@ -67,30 +88,26 @@ def setup_logging():
     )
     security_handler.setLevel(logging.WARNING)
     security_format = logging.Formatter(
-        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - %(message)s'
+        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - User:%(user_id)s - %(message)s'
     )
     security_handler.setFormatter(security_format)
+    
+    # Clear any existing handlers
+    logger.handlers.clear()
     
     # Add handlers to logger
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
     logger.addHandler(security_handler)
     
+    # Add the security filter
+    logger.addFilter(SecurityLoggingFilter())
+    
     return logger
 
+# Initialize logger
 logger = setup_logging()
 
-# Security Context for Logging (cursor assisted)
-class SecurityLoggingFilter(logging.Filter):
-    def filter(self, record):
-        record.remote_addr = getattr(request, 'remote_addr', 'No IP')
-        record.user_id = session.get('user_id', 'No User')
-        record.url = getattr(request, 'url', 'No URL')
-        return True
-
-logger.addFilter(SecurityLoggingFilter())
-
-# Request tracking
 @app.before_request
 def before_request():
     # Generate request ID for tracking
@@ -98,7 +115,7 @@ def before_request():
     # Add timestamp for request duration tracking
     request._start_time = datetime.utcnow()
     
-    # Log incoming requests with context (cursor assisted)
+    # Log incoming requests with context
     logger.info(
         f"Request {request.id}: {request.method} {request.path}",
         extra={
@@ -106,7 +123,7 @@ def before_request():
             'method': request.method,
             'path': request.path,
             'ip': request.remote_addr,
-            'user_agent': request.user_agent.string
+            'user_agent': request.user_agent.string if request.user_agent else 'No User Agent'
         }
     )
 
@@ -147,14 +164,20 @@ def init_db():
             try:
                 with open(schema_path, 'r') as f:
                     db.executescript(f.read())
+                logger.info("Database schema initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize database: {e}")
                 import sys
                 sys.exit(1)
-            # TODO: learn more about PRAGMA statements
-            db.execute('PRAGMA journal_mode=WAL;') # Use Write-Ahead Logging for better concurrency
-            db.execute('PRAGMA foreign_keys=ON;')  # Enable foreign key constraints
-    logger.info("Connected to the database successfully.")
+            
+            try:
+                # Enable WAL mode and foreign keys
+                db.execute('PRAGMA journal_mode=WAL;')
+                db.execute('PRAGMA foreign_keys=ON;')
+                logger.info("Database configuration completed successfully")
+            except Exception as e:
+                logger.error(f"Failed to configure database: {e}")
+                sys.exit(1)
 
 # Middleware to check if user is logged in
 def login_required(f):
@@ -187,7 +210,6 @@ def index():
 
 # Endpoint to serve WRITE editor page
 @app.route('/write', methods=['GET', 'POST'])
-@login_required
 @limiter.limit("30 per hour")  # Prevent spam (cursor assisted)
 def write():
     if request.method == 'POST':
@@ -220,10 +242,6 @@ def write():
         return redirect('/shelf')
 
     return render_template('write.html', data={"title": "Write"})
-
-
-
-
 
 @app.route('/shelf')
 @login_required
@@ -341,10 +359,6 @@ def delete_post(post_id):
     
     return redirect('/shelf')
 
-
-
-
-
 @app.route('/register', methods=['GET', 'POST'])
 @limiter.limit("5 per hour")  # Strict limit on registration attempts
 def register():
@@ -386,7 +400,6 @@ def register():
 
         return redirect('/login')
     return render_template('register.html', data={"title": "Register"})
-
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")  # Prevent brute force attempts

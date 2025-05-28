@@ -17,3 +17,21 @@ TODO:
 
 - learn about PRAGMA statements. got db lock error which resolved using db context.
 - pagination and offset when huge number of posts are saved.
+
+# SQLite Database Files Explained
+
+- **flowrite.db**  
+  This is the main SQLite database file. It stores all your tables, data, and schema.
+
+- **flowrite.db-wal**  
+  This is the Write-Ahead Log (WAL) file. When SQLite is in WAL mode, all changes are first written to this file for better concurrency and performance. The changes are later merged into the main database file.
+
+- **flowrite.db-shm**  
+  This is the shared memory file used by SQLite in WAL mode. It helps coordinate access and caching between different database connections.
+
+**Summary:**  
+- `flowrite.db` — main database  
+- `flowrite.db-wal` — recent changes (write-ahead log)  
+- `flowrite.db-shm` — shared memory for coordination
+
+You should keep all three files together for the database to work correctly in WAL mode.
