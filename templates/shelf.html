@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block main %}
-<div class="container pt-5">
+<div class="container py-5">
     {% if data.posts %}
         <div class="row g-4 mt-4">
             {% for post in data.posts %}
@@ -29,8 +29,7 @@
                 </div>
             {% endfor %}
         </div>
-            {% set button_text = "Write Mode" %}
-        </div>
+        {% set button_text = "Write Mode" %}
     {% else %}
         <div class="empty-state text-center py-5">
             <p class="text-muted mb-4">Your shelf is empty</p>
@@ -38,7 +37,7 @@
         </div>
     {% endif %}
 
-    <div class="d-flex justify-content-center align-items-center py-4" style="min-height: 120px;">
+    <div class="write-button-container">
         <a href="/write" class="btn btn-subtle px-4">{{ button_text }}</a>
     </div>
 </div>
@@ -97,6 +96,14 @@
 .empty-state .btn-subtle {
     font-size: 0.95rem;
     padding: 0.5rem 1.5rem;
+}
+
+.write-button-container {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
+    margin-top: 2rem;
+    margin-bottom: calc(56px + 1rem); /* footer height + extra padding */
 }
 </style>
 {% endblock %}
