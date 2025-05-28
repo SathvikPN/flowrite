@@ -7,13 +7,15 @@
 {% block main %}
 <div class="container pt-5">
     {% if data.posts %}
-        <div class="row g-4 mt-4"></div>
+        <div class="row g-4 mt-4">
             {% for post in data.posts %}
-                <div class="col-md-6 col-lg-4">
-                    <article class="post-card d-flex flex-column h-100">
+                <div class="col-12 col-md-6 col-lg-4 d-flex">
+                    <article class="post-card d-flex flex-column h-100 w-100">
                         <div class="post-content flex-grow-1">
                             <h2 class="post-title h5 mb-3">{{ post.title }}</h2>
                             <p class="post-preview text-secondary mb-3">{{ post.content }}</p>
+                            {# The CSS below allows 3 line preview of post #}
+                            {# .post-preview { -webkit-line-clamp: 3; line-clamp: 3; } #}
                         </div>
                         <div class="post-meta d-flex justify-content-between align-items-center">
                             <div class="post-info">
@@ -26,6 +28,7 @@
                     </article>
                 </div>
             {% endfor %}
+        </div>
             {% set button_text = "Write Mode" %}
         </div>
     {% else %}
