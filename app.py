@@ -270,6 +270,7 @@ def login():
 
             # User authenticated successfully
             session['user_id'] = user['id']
+            session['username'] = user['username']
             # Optionally update last_login
             db.execute(
                 "UPDATE user SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
