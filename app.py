@@ -11,6 +11,7 @@ from datetime import datetime
 import uuid
 import logging.handlers
 import secrets
+import pytz  # For timezone support
 
 app = Flask(__name__)
 MAX_CHARS_PER_POST = 30000  # Example limit for post content length
@@ -18,8 +19,9 @@ MAX_CHARS_PER_POST = 30000  # Example limit for post content length
 # Security Configurations (cursor assisted rewrite)
 app.secret_key = secrets.token_hex(32)  # Generate a secure random key
 app.config.update(
-    SESSION_COOKIE_SECURE=True,          # Only send cookies over HTTPS
-    SESSION_COOKIE_HTTPONLY=True,        # Prevent JavaScript access to session cookie
+    SESSION_COOKIE_SECURE=False,        # Allow cookies over HTTP in development
+    # SESSION_COOKIE_SECURE=True,        # Allow cookies only over HTTPS
+    SESSION_COOKIE_HTTPONLY=True,       # Prevent JavaScript access to session cookie
     SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
     PERMANENT_SESSION_LIFETIME=1800,     # Session timeout (30 minutes)
     MAX_CONTENT_LENGTH=10 * 1024 * 1024 # Max content length (10MB)
@@ -56,18 +58,39 @@ class SecurityLoggingFilter(logging.Filter):
 class RequestFilter(logging.Filter):
     SKIP_PATHS = {
         '.css', '.js', '.ico', '.png', '.jpg', '.jpeg', '.gif', '.svg',  # Static files
-        '/static/', '/favicon.ico'  # Common static paths
+        '/static/', '/favicon.ico', '/health',  # Common static and utility paths
+        '/__pycache__/', '.pyc', '.map'  # Development files
     }
+    
+    SKIP_METHODS = {'OPTIONS', 'HEAD'}  # Skip non-essential HTTP methods
     
     def filter(self, record):
         if not hasattr(record, 'url'):
             return True
         
-        # Skip static file requests
+        # Skip static file requests and health checks
         if any(ext in record.url for ext in self.SKIP_PATHS):
             return False
             
+        # Skip non-essential HTTP methods
+        if hasattr(record, 'method') and record.method in self.SKIP_METHODS:
+            return False
+            
         return True
+
+class ISTFormatter(logging.Formatter):
+    """Custom formatter that converts timestamps to IST"""
+    
+    def converter(self, timestamp):
+        ist = pytz.timezone('Asia/Kolkata')
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.astimezone(ist)
+    
+    def formatTime(self, record, datefmt=None):
+        dt = self.converter(record.created)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 # Enhanced Logging Configuration
 def setup_logging():
@@ -78,10 +101,10 @@ def setup_logging():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     
-    # Console Handler - minimal output
+    # Console Handler - minimal output for development
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    console_format = logging.Formatter('%(levelname)s: %(message)s')
+    console_format = ISTFormatter('%(levelname)s: %(message)s')
     console_handler.setFormatter(console_format)
     
     # File Handler for general logs
@@ -89,24 +112,26 @@ def setup_logging():
         os.path.join(log_dir, 'app.log'),
         when='midnight',
         interval=1,
-        backupCount=30
+        backupCount=30,
+        encoding='utf-8'
     )
     file_handler.setLevel(logging.INFO)
-    file_format = logging.Formatter(
-        '%(asctime)s - %(levelname)s - [%(remote_addr)s] %(message)s'
+    file_format = ISTFormatter(
+        '[%(asctime)s] %(levelname)s: %(message)s'  # Simplified format, removed redundant info
     )
     file_handler.setFormatter(file_format)
     
-    # Security Event Handler
+    # Security Event Handler - for critical events only
     security_handler = logging.handlers.TimedRotatingFileHandler(
         os.path.join(log_dir, 'security.log'),
         when='midnight',
         interval=1,
-        backupCount=90
+        backupCount=90,
+        encoding='utf-8'
     )
-    security_handler.setLevel(logging.WARNING)
-    security_format = logging.Formatter(
-        '%(asctime)s - %(levelname)s - [%(remote_addr)s] - User:%(user_id)s - %(message)s'
+    security_handler.setLevel(logging.WARNING)  # Only log warning and above for security
+    security_format = ISTFormatter(
+        '[%(asctime)s] %(levelname)s - IP:%(remote_addr)s - User:%(user_id)s - %(message)s'
     )
     security_handler.setFormatter(security_format)
     
@@ -138,11 +163,11 @@ def before_request():
     if any(ext in request.path for ext in RequestFilter.SKIP_PATHS):
         return
     
-    # Only log main route accesses (TODO: REVIEW)
-    if request.method != 'GET' or not request.path.endswith('/'):
+    # Only log significant requests (removed redundant GET logging)
+    if request.method not in ['GET', 'HEAD', 'OPTIONS']:  # Only log non-idempotent methods
         request.id = str(uuid.uuid4())
         request._start_time = datetime.utcnow()
-        logger.info(f"{request.method} {request.path}")
+        logger.info(f"{request.method} {request.path}")  # Log only method and path
 
 @app.after_request
 def after_request(response):
@@ -150,11 +175,12 @@ def after_request(response):
     if any(ext in request.path for ext in RequestFilter.SKIP_PATHS):
         return response
     
-    # Only log non-successful responses and non-GET requests
-    if response.status_code >= 400 or request.method != 'GET':
+    # Only log errors and significant operations
+    if response.status_code >= 400 or request.method not in ['GET', 'HEAD', 'OPTIONS']:
         duration = datetime.utcnow() - getattr(request, '_start_time', datetime.utcnow())
+        # Only log essential information: status code, method, path for errors
         logger.info(
-            f"{request.method} {request.path} - Status: {response.status_code} - Duration: {duration.total_seconds():.3f}s"
+            f"{response.status_code} {request.method} {request.path} ({duration.total_seconds():.3f}s)"
         )
     
     # Add security headers
@@ -198,10 +224,12 @@ def init_db():
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        logger.info(f"Session check - Current session data: {dict(session)}")
         # Unauthenticated: user not logged in (no user_id in session)
         if 'user_id' not in session:
-            logger.warning("Unauthenticated access for the requested resource")
-            return redirect('/login')
+            logger.warning(f"Unauthenticated session: {session.get('user_id', 'No User')} from {request.remote_addr} for {request.path}")
+            flash('Please log in to access this page', 'warning')
+            return redirect(url_for('login', next=request.path))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -438,6 +466,7 @@ def login():
         with get_db() as db:
             try:
                 user = db.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone()
+                logger.info(f"Login attempt - Found user: {bool(user)} for username: {username}")
 
                 if not user or not check_password_hash(user['password'], password):
                     logger.warning(
@@ -452,6 +481,8 @@ def login():
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session.permanent = True  # Use permanent session with lifetime set in config
+                
+                logger.info(f"Session after login - user_id: {session.get('user_id')}, username: {session.get('username')}")
                 
                 # Update last login timestamp and IP
                 db.execute(
