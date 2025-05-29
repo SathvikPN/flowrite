@@ -275,7 +275,7 @@ def write():
                     (user_id, content, request.remote_addr)
                 )
                 post_id = cursor.lastrowid  # Get the autoincremented id of the new post
-                logger.info(f"New post created. postID: {post_id}  user: {session.get('username')}")
+                logger.info(f"Created post. postID: {post_id}  user: {session.get('username')}")
                 flash('Post saved successfully', 'success')
                 
             except sqlite3.Error as e:
@@ -355,7 +355,7 @@ def edit_post(post_id):
             db.execute("UPDATE post SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                       (content, post_id))
             flash('Post updated successfully', 'success')
-            logger.info(f"Post updated. postID: {post_id} by user: {session.get('username')}")
+            logger.info(f"Updated post. postID: {post_id} by user: {session.get('username')}")
             return redirect(url_for('view_post', post_id=post_id))
     
     # GET request - show edit form
@@ -394,7 +394,7 @@ def delete_post(post_id):
             
             # If checks pass, delete the post
             db.execute("DELETE FROM post WHERE id = ?", (post_id,))
-            logger.info(f"Deleted postID: {post_id} by user: {session.get('username')}")
+            logger.info(f"Deleted post. postID: {post_id} by user: {session.get('username')}")
             flash('Post deleted successfully', 'success')
             
         except sqlite3.Error as e:
@@ -482,7 +482,7 @@ def login():
                     (request.remote_addr, user['id'])
                 )
                 
-                logger.info(f"login OK. user '{username}' from '{request.remote_addr}'")
+                logger.info(f"login OK. user: '{username}' userIP: '{request.remote_addr}'")
                 
             except sqlite3.Error as e:
                 logger.error(f"Database error during login: {e}")
@@ -496,9 +496,9 @@ def login():
 @app.route('/logout')
 def logout():
     """Log out the user by clearing the session."""
-    logger.info(f"User {session.get('user_id')} is logging out.")
+    username = session.get('username', 'Unknown User')
     session.clear()
-    logger.info(f"logout OK, user: {session.get('username', 'No User')}")
+    logger.info(f"logout OK, user: {username} userIP: {request.remote_addr}")
     return redirect('/')
 
 if __name__ == '__main__':
