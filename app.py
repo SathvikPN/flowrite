@@ -109,6 +109,9 @@ DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 
 # Ensure instance directory exists
 os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance'), exist_ok=True)
 
+# Add this near the top of the file, after imports
+CONTENT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'content')
+
 # Update logging configuration for PythonAnywhere
 def setup_logging():
     """Configure logging to write to instance directory"""
@@ -237,13 +240,21 @@ def health():
 # Endpoint for landing page
 @app.route('/')
 def index():
-    with open('content/index_article.md', 'r', encoding='utf-8') as file:
-        index_article = file.read()
-    article_html = markdown.markdown(index_article)
-    return render_template('index.html', data = {
-        "title": "Home",
-        "message": "Hompe Page for Flowrite",
-    }, article_html=article_html)
+    article_path = os.path.join(CONTENT_DIR, 'index_article.md')
+    try:
+        with open(article_path, 'r', encoding='utf-8') as file:
+            index_article = file.read()
+        article_html = markdown.markdown(index_article)
+        return render_template('index.html', data = {
+            "title": "Home",
+            "message": "Home Page for Flowrite",
+        }, article_html=article_html)
+    except FileNotFoundError:
+        logger.error(f"Could not find index article at {article_path}")
+        return render_template('index.html', data = {
+            "title": "Home",
+            "message": "Home Page for Flowrite",
+        }, article_html="Welcome to Flowrite!")
 
 # Endpoint to serve WRITE editor page
 @app.route('/write', methods=['GET', 'POST'])
