@@ -1,22 +1,23 @@
 # Flowrite
-call it 'you'prep or 'up'rep, a simple website to log your repetition of ritual be it reading, gymming or anything per se
+Flowrite is a minimalist distraction free write space perfect for your first draft.  
+Not an editor, rather a clean write space focussed on bringout out your thoughts into words. 
 
 
 TODO:
 
-- rename repo to Flowrite
-- focus area: login option. user view login v/s logout, saving write to DB and pretty display at shelf (DONE, pretty display TBD)
-- rate limiting the requests
-- explore logging utils (TBD file based)
+- rename repo to Flowrite (done)
+- focus area: login option. user view login v/s logout, saving write to DB and pretty display at shelf (DONE)
+- rate limiting the requests (done)
+- explore logging utils (review)
 - add ambient music for focussed writing (play selected non-lyrical music, a cat companion animation watching, small element at bottom right)  [enhancement]
-- rewrite pitch deck to highlight this is not finishing editor but a starting scratchpad [review]
-- decide landing page, land on pitch or direct write page and show value [TBD]
+- rewrite pitch deck to highlight this is not finishing editor but a starting scratchpad (done)
+- decide landing page, land on pitch or direct write page and show value (done)
 - unauthenticated user visit shelf, friendly error page OR show samples of how his shelf might look (DONE, route to login)
 
 
 
 - learn about PRAGMA statements. got db lock error which resolved using db context.
-- pagination and offset when huge number of posts are saved.
+- pagination and offset when huge number of posts are saved. (review)
 
 # SQLite Database Files Explained
 
@@ -47,4 +48,12 @@ You should keep all three files together for the database to work correctly in W
 - TODO: logs are crowded, multiple logs.
 - invalid login username password error fine
 - register page mismatched pwd fine. 
-- proper register > login page 
+- proper register > login page
+- logged in user sees his username in welcome message
+- view past posts in shelf
+- export post. save post to shelf, list post chronologically decreasing order
+- edit > write space loaded with post, whitespace indentations preserved
+- updated post updates existing post
+- logout resets page to fresh view
+- write space remember font selection. font list are intentionally few.
+- responsive on smartphone screens
