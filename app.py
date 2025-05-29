@@ -103,65 +103,38 @@ class ISTFormatter(logging.Formatter):
             return dt.strftime(datefmt)
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
-# Enhanced Logging Configuration
+# Update database path to use instance folder
+DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'flowrite.db')
+
+# Ensure instance directory exists
+os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance'), exist_ok=True)
+
+# Update logging configuration for PythonAnywhere
 def setup_logging():
-    log_dir = os.path.join(os.path.dirname(__file__), 'logs')
+    """Configure logging to write to instance directory"""
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'logs')
     os.makedirs(log_dir, exist_ok=True)
     
-    # Main application logger
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
-    
-    # Console Handler - minimal output for development
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_format = ISTFormatter('%(levelname)s: %(message)s')
-    console_handler.setFormatter(console_format)
     
     # File Handler for general logs
     file_handler = logging.handlers.TimedRotatingFileHandler(
         os.path.join(log_dir, 'app.log'),
         when='midnight',
         interval=1,
-        backupCount=30,
+        backupCount=7,  # Keep only last 7 days of logs
         encoding='utf-8'
     )
     file_handler.setLevel(logging.INFO)
     file_format = ISTFormatter(
-        '[%(asctime)s] %(levelname)s: %(message)s'  # Simplified format, removed redundant info
+        '[%(asctime)s] %(levelname)s: %(message)s'
     )
     file_handler.setFormatter(file_format)
     
-    # Security Event Handler - for critical events only
-    security_handler = logging.handlers.TimedRotatingFileHandler(
-        os.path.join(log_dir, 'security.log'),
-        when='midnight',
-        interval=1,
-        backupCount=90,
-        encoding='utf-8'
-    )
-    security_handler.setLevel(logging.WARNING)  # Only log warning and above for security
-    security_format = ISTFormatter(
-        '[%(asctime)s] %(levelname)s - IP:%(remote_addr)s - User:%(user_id)s - %(message)s'
-    )
-    security_handler.setFormatter(security_format)
-    
     # Clear any existing handlers
     logger.handlers.clear()
-    
-    # Add handlers and filters
-    logger.addHandler(console_handler)
     logger.addHandler(file_handler)
-    logger.addHandler(security_handler)
-    
-    # Add filters
-    request_filter = RequestFilter()
-    security_filter = SecurityLoggingFilter()
-    
-    logger.addFilter(security_filter)
-    logger.addFilter(request_filter)
-    file_handler.addFilter(request_filter)
-    security_handler.addFilter(request_filter)
     
     return logger
 
@@ -177,7 +150,6 @@ def before_request():
     # Only log significant requests (removed redundant GET logging)
     if request.method not in ['GET', 'HEAD', 'OPTIONS']:  # Only log non-idempotent methods
         request.id = str(uuid.uuid4())
-        request._start_time = datetime.utcnow()
         logger.info(f"{request.method} {request.path}")  # Log only method and path
 
 @app.after_request
@@ -187,12 +159,11 @@ def after_request(response):
         return response
     
     # Only log errors and significant operations
-    if response.status_code >= 400 or request.method not in ['GET', 'HEAD', 'OPTIONS']:
-        duration = datetime.utcnow() - getattr(request, '_start_time', datetime.utcnow())
-        # Only log essential information: status code, method, path for errors
-        logger.info(
-            f"{response.status_code} {request.method} {request.path} ({duration.total_seconds():.3f}s)"
-        )
+    # if response.status_code >= 400 or request.method not in ['GET', 'HEAD', 'OPTIONS']:
+    #     # Only log essential information: status code, method, path for errors
+    #     logger.info(
+    #         f"{response.status_code} {request.method} {request.path}"
+    #     )
     
     # Add security headers
     response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -210,6 +181,19 @@ def get_db():
 
 def init_db():
     """Initialize the database using schema.sql."""
+    # Check if database already exists and has the required tables
+    try:
+        with get_db() as db:
+            tables = db.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND (name='user' OR name='post')
+            """).fetchall()
+            if len(tables) == 2:  # Both tables exist
+                return  # Database is already initialized
+    except sqlite3.Error:
+        pass  # Database doesn't exist or is corrupted, proceed with initialization
+
+    # Initialize the database
     with app.app_context():
         with get_db() as db:
             schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
@@ -235,7 +219,6 @@ def init_db():
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        logger.info(f"Session check - Current session data: {dict(session)}")
         # Unauthenticated: user not logged in (no user_id in session)
         if 'user_id' not in session:
             logger.warning(f"Unauthenticated session: {session.get('user_id', 'No User')} from {request.remote_addr} for {request.path}")
@@ -287,11 +270,12 @@ def write():
 
         with get_db() as db:
             try:
-                db.execute(
+                cursor = db.execute(
                     "INSERT INTO post (user_id, content, created_at, ip_address) VALUES (?, ?, CURRENT_TIMESTAMP, ?)",
                     (user_id, content, request.remote_addr)
                 )
-                logger.info(f"New post created by user {user_id}")
+                post_id = cursor.lastrowid  # Get the autoincremented id of the new post
+                logger.info(f"New post created. postID: {post_id}  user: {session.get('username')}")
                 flash('Post saved successfully', 'success')
                 
             except sqlite3.Error as e:
@@ -322,7 +306,6 @@ def shelf():
             "content": post['content'],
             "created_at": post['created_at']
         })
-    logger.info(f"User {user_id} accessed their shelf with {len(display_posts)} articles.")
 
     return render_template('shelf.html', data = {
         "title": "Shelf",
@@ -372,6 +355,7 @@ def edit_post(post_id):
             db.execute("UPDATE post SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                       (content, post_id))
             flash('Post updated successfully', 'success')
+            logger.info(f"Post updated. postID: {post_id} by user: {session.get('username')}")
             return redirect(url_for('view_post', post_id=post_id))
     
     # GET request - show edit form
@@ -410,7 +394,7 @@ def delete_post(post_id):
             
             # If checks pass, delete the post
             db.execute("DELETE FROM post WHERE id = ?", (post_id,))
-            logger.info(f"Post {post_id} deleted by user {user_id}")
+            logger.info(f"Deleted postID: {post_id} by user: {session.get('username')}")
             flash('Post deleted successfully', 'success')
             
         except sqlite3.Error as e:
@@ -452,7 +436,7 @@ def register():
                     "INSERT INTO user (username, password, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
                     (username, hashed_password)
                 )
-                logger.info(f"New user registered: {username} from {request.remote_addr}")
+                logger.info(f"New user registered: user: '{username}' userIP: {request.remote_addr}")
                 
             except sqlite3.Error as e:
                 logger.error(f"Database error during registration: {e}")
@@ -477,7 +461,6 @@ def login():
         with get_db() as db:
             try:
                 user = db.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone()
-                logger.info(f"Login attempt - Found user: {bool(user)} for username: {username}")
 
                 if not user or not check_password_hash(user['password'], password):
                     logger.warning(
@@ -492,16 +475,14 @@ def login():
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session.permanent = True  # Use permanent session with lifetime set in config
-                
-                logger.info(f"Session after login - user_id: {session.get('user_id')}, username: {session.get('username')}")
-                
+                                
                 # Update last login timestamp and IP
                 db.execute(
                     "UPDATE user SET last_login = CURRENT_TIMESTAMP, last_login_ip = ? WHERE id = ?",
                     (request.remote_addr, user['id'])
                 )
                 
-                logger.info(f"Successful login for user '{username}' from {request.remote_addr}")
+                logger.info(f"login OK. user '{username}' from '{request.remote_addr}'")
                 
             except sqlite3.Error as e:
                 logger.error(f"Database error during login: {e}")
@@ -517,18 +498,10 @@ def logout():
     """Log out the user by clearing the session."""
     logger.info(f"User {session.get('user_id')} is logging out.")
     session.clear()
-    logger.info("User logged out successfully.")
+    logger.info(f"logout OK, user: {session.get('username', 'No User')}")
     return redirect('/')
 
 if __name__ == '__main__':
-    # Path to the SQLite database file
-    DATABASE = app.config['DATABASE']
-
-    # Always initialize DB to ensure schema exists
+    # Initialize DB to ensure schema exists
     init_db()
-
-    # Development server - only use for development!
-    if os.environ.get('FLASK_ENV') == 'development':
-        app.run(debug=True, port=5001, host='127.0.0.1')
-    else:
-        print("Use 'gunicorn -c gunicorn.conf.py app:app' for production deployment")
+    print("Database initialized. Use PythonAnywhere's WSGI configuration to run the application.")

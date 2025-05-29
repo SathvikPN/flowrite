@@ -12,7 +12,7 @@ class Config:
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB
 
     # Database
-    DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'flowrite.db')
+    DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'flowrite.db')
     
     # Rate Limiting
     RATELIMIT_DEFAULT = "2000 per day;500 per hour"
@@ -25,16 +25,20 @@ class Config:
 
 class DevelopmentConfig(Config):
     """Development configuration."""
+    FLASK_ENV = 'development'
     DEBUG = True
     SESSION_COOKIE_SECURE = False  # Allow HTTP in development
+    DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'flowrite_dev.db')
 
 class ProductionConfig(Config):
     """Production configuration."""
+    FLASK_ENV = 'production'
     DEBUG = False
-    TESTING = False
+    SESSION_COOKIE_SECURE = True  # Require HTTPS
+    # In PythonAnywhere, you might want to set an absolute path
+    DATABASE = '/home/YOUR_USERNAME/flowrite/instance/flowrite.db'
     
     # Enhanced security settings
-    SESSION_COOKIE_SECURE = True
     PERMANENT_SESSION_LIFETIME = 1800  # 30 minutes
     
     # Production logging
@@ -43,7 +47,7 @@ class ProductionConfig(Config):
     # Rate limiting with Redis in production
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
-# Load configuration based on environment
+# Configuration dictionary
 config = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
