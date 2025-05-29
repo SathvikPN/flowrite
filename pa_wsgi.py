@@ -2,7 +2,7 @@ import os
 import sys
 
 # Add your project directory to the sys.path
-project_home = '/home/YOUR_USERNAME/flowrite'
+project_home = '/home/sathvikpn/flowrite'
 if project_home not in sys.path:
     sys.path.insert(0, project_home)
 
