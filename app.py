@@ -12,8 +12,27 @@ import uuid
 import logging.handlers
 import secrets
 import pytz  # For timezone support
+from config import config
 
-app = Flask(__name__)
+# Initialize Limiter before create_app so it can be used inside create_app
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri="memory://"
+)
+
+# Create Flask application with configuration
+def create_app(config_name='production'):
+    app = Flask(__name__)
+    
+    # Load configuration
+    app.config.from_object(config[config_name])
+    
+    # Initialize extensions
+    limiter.init_app(app)
+    
+    return app
+
+app = create_app(os.environ.get('FLASK_ENV', 'production'))
 MAX_CHARS_PER_POST = 30000  # Example limit for post content length
 
 # Security Configurations (cursor assisted rewrite)
@@ -25,14 +44,6 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
     PERMANENT_SESSION_LIFETIME=1800,     # Session timeout (30 minutes)
     MAX_CONTENT_LENGTH=10 * 1024 * 1024 # Max content length (10MB)
-)
-
-# Rate Limiter Configuration (cursor assisted rewrite) read: https://flask-limiter.readthedocs.io/en/stable/
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["2000 per day", "500 per hour"],
-    storage_uri="memory://"  # Use memory for development, redis:// for production
 )
 
 # Security Context for Logging
@@ -510,14 +521,14 @@ def logout():
     return redirect('/')
 
 if __name__ == '__main__':
-    # session.clear()  # session is only valid in a request context
-    
     # Path to the SQLite database file
-    DATABASE = os.path.join(os.path.dirname(__file__), 'flowrite.db')
+    DATABASE = app.config['DATABASE']
 
     # Always initialize DB to ensure schema exists
     init_db()
 
-    # Start the Flask application
-    # app.run(debug=True, port=5001, host='127.0.0.1')
-    app.run(debug=True, port=5001, host='0.0.0.0')
+    # Development server - only use for development!
+    if os.environ.get('FLASK_ENV') == 'development':
+        app.run(debug=True, port=5001, host='127.0.0.1')
+    else:
+        print("Use 'gunicorn -c gunicorn.conf.py app:app' for production deployment")
