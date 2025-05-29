@@ -11,4 +11,4 @@ os.environ['FLASK_ENV'] = 'production'
 os.environ['SECRET_KEY'] = 'your-secret-key-here'  # Replace with your actual secret key
 
 # Import your Flask app
-from app import app as application  # This is important - PythonAnywhere looks for 'application' 
+from app import app as application  # PythonAnywhere looks for 'application' 
