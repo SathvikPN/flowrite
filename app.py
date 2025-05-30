@@ -38,8 +38,7 @@ MAX_CHARS_PER_POST = 30000  # Example limit for post content length
 # Security Configurations (cursor assisted rewrite)
 app.secret_key = secrets.token_hex(32)  # Generate a secure random key
 app.config.update(
-    SESSION_COOKIE_SECURE=False,        # Allow cookies over HTTP in development
-    # SESSION_COOKIE_SECURE=True,        # Allow cookies only over HTTPS
+    SESSION_COOKIE_SECURE=True,         # Only allow cookies over HTTPS
     SESSION_COOKIE_HTTPONLY=True,       # Prevent JavaScript access to session cookie
     SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
     PERMANENT_SESSION_LIFETIME=1800,     # Session timeout (30 minutes)
@@ -323,8 +322,9 @@ def shelf():
         "posts": display_posts,
     })
 
-# TODO: check if user is the owner of the post
+# TODO: check if user is the owner of the post (DONE)
 @app.route('/posts/<int:post_id>')
+@login_required  
 def view_post(post_id):
     # Get post from database
     with get_db() as db:
@@ -335,9 +335,14 @@ def view_post(post_id):
         flash('Post not found', 'error')
         return redirect('/shelf')
     
+    # Check if user owns this post
+    if post['user_id'] != session.get('user_id'):
+        flash('You do not have permission to view this post', 'error')
+        return redirect('/shelf')
+    
     return render_template('post.html', post=post)
 
-# TODO: check if user is the owner of the post
+# TODO: check if user is the owner of the post (DONE)
 @app.route('/posts/<int:post_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_post(post_id):
@@ -375,7 +380,7 @@ def edit_post(post_id):
         "message": "Edit your post..."
     }, post=post)
 
-# TODO: check if user is the owner of the post
+# TODO: check if user is the owner of the post (DONE)
 @app.route('/posts/<int:post_id>/delete', methods=['POST'])
 @login_required
 @limiter.limit("50 per minute")  # Prevent rapid deletion (cursor assisted)
