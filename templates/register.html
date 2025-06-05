@@ -14,7 +14,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
+            <input type="password" class="form-control" id="password" name="password" required>
                 </div>
                 <div class="mb-3">
                     <label for="confirmation" class="form-label">Confirm Password</label>
@@ -31,8 +31,8 @@
 
 {% if data.error %}
     <div class="d-flex justify-content-center mt-3">
-        <div class="alert alert-danger shadow-sm rounded-3 text-center px-4 py-3" role="alert" style="background: #fff6f6; border-color: #f5c2c7; color: #842029; max-width: 500px; width: 100%;">
-            <i class="bi bi-exclamation-circle-fill me-2" style="font-size: 1.2rem;"></i>
+        <div class="alert alert-danger alert-custom shadow-sm rounded-3 text-center px-4 py-3" role="alert">
+            <i class="bi bi-exclamation-circle-fill me-2 alert-icon"></i>
             {{ data.error }}
         </div>
     </div>
