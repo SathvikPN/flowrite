@@ -18,6 +18,15 @@
                   autofocus>{% if post %}{{ post.content }}{% endif %}</textarea>
     </form>
 </div>
+
+<div class="timer-section">
+    <div class="container">
+        <button type="button" id="timer-btn" class="btn btn-subtle py-1 px-2 text-muted">
+            <span id="timer-display">00:00</span>
+        </button>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block footer %}
@@ -68,7 +77,7 @@
 #write-form {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 140px);
+    height: calc(100vh - 196px);
     position: relative;
     margin-bottom: 20px;
 }
@@ -165,6 +174,34 @@
     color: #333;
 }
 
+.timer-section {
+    position: fixed;
+    bottom: 56px;
+    left: 0;
+    width: 100%;
+    padding: 0.5rem 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #eee;
+    z-index: 1029;
+}
+
+.timer-section .container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+#timer-btn {
+    font-size: 14px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+#timer-btn:hover {
+    opacity: 1;
+}
+
 @media (max-width: 576px) {
     .toolbar-content {
         row-gap: 0.5rem !important;
@@ -187,6 +224,14 @@
         padding-left: 0.5rem;
         opacity: 1;
     }
+
+    .timer-section {
+        padding: 0.25rem 0;
+    }
+    
+    #write-form {
+        height: calc(100vh - 186px);
+    }
 }
 </style>
 
@@ -196,6 +241,40 @@ document.addEventListener('DOMContentLoaded', function() {
     const fontFamily = document.getElementById('font-family');
     const fontSize = document.getElementById('font-size');
     const exportBtn = document.getElementById('export-btn');
+    const timerBtn = document.getElementById('timer-btn');
+    const timerDisplay = document.getElementById('timer-display');
+
+    let timerInterval;
+    let startTime;
+    let isTimerRunning = false;
+
+    // Timer functions
+    function formatTime(ms) {
+        const minutes = Math.floor(ms / 60000);
+        const seconds = Math.floor((ms % 60000) / 1000);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+        const currentTime = Date.now();
+        const elapsedTime = currentTime - startTime;
+        timerDisplay.textContent = formatTime(elapsedTime);
+    }
+
+    timerBtn.addEventListener('click', function() {
+        if (!isTimerRunning) {
+            // Start timer
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+            timerBtn.classList.add('text-primary');
+            isTimerRunning = true;
+        } else {
+            // Stop timer
+            clearInterval(timerInterval);
+            timerBtn.classList.remove('text-primary');
+            isTimerRunning = false;
+        }
+    });
 
     // Load saved preferences
     const savedFont = localStorage.getItem('preferredFont');

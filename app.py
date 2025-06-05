@@ -38,7 +38,7 @@ MAX_CHARS_PER_POST = 30000  # Example limit for post content length
 # Security Configurations (cursor assisted rewrite)
 app.secret_key = secrets.token_hex(32)  # Generate a secure random key
 app.config.update(
-    SESSION_COOKIE_SECURE=True,         # Only allow cookies over HTTPS
+    SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV') == 'production',  # Only require HTTPS in production
     SESSION_COOKIE_HTTPONLY=True,       # Prevent JavaScript access to session cookie
     SESSION_COOKIE_SAMESITE='Lax',      # CSRF protection
     PERMANENT_SESSION_LIFETIME=1800,     # Session timeout (30 minutes)
